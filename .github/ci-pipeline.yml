@@ -53,10 +53,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint (oxc)
-        run: pnpm oxlint .
+        run: pnpm lint
 
       - name: Format check (oxc)
-        run: pnpm oxc-prettier --check .
+        run: pnpm format:check
 
   test:
     name: Test
