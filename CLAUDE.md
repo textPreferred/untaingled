@@ -2,26 +2,25 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Package manager
+## Package manager & runtime
 
-Use **pnpm** for all dependency management.
+Use **bun** for everything — package management, running TypeScript, and tests.
 
 ## Commands
 
 ```bash
-pnpm install       # install dependencies
-pnpm build         # tsc compile to dist/
-pnpm dev           # run src/index.ts via ts-node
-pnpm test          # run tests once (vitest)
-pnpm test:watch    # run tests in watch mode
-pnpm lint          # oxlint
-pnpm format        # oxfmt (fix)
-pnpm format:check  # oxfmt (check only)
+bun install        # install dependencies
+bun run build      # tsc compile to dist/
+bun dev            # run src/index.ts
+bun test           # run tests
+bun lint           # oxlint
+bun format         # oxfmt (fix)
+bun format:check   # oxfmt (check only)
 ```
 
 ## TypeScript
 
-Strict mode with additional checks: `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`. Module system is `NodeNext` (ESM). Source in `src/`, compiled output in `dist/`.
+Strict mode with additional checks: `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`. Module system is `Preserve` / `Bundler` (bun-native). Source in `src/`, compiled output in `dist/`.
 
 ## CI pipeline
 
