@@ -6,8 +6,8 @@ export default defineConfig({
     baseURL: "http://localhost:3000",
   },
   webServer: {
-    command: "bun dev",
+    command: "rm -f data.db && bun dev",
     port: 3000,
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: false,
   },
 });

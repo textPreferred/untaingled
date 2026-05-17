@@ -4,12 +4,13 @@
   "description": "Untangling personal histories",
   "license": "MIT",
   "scripts": {
-    "build": "tsc",
-    "dev": "bun src/index.ts",
+    "build": "vite build && tsc",
+    "dev": "vite build && bun src/index.ts",
     "test": "bun test",
     "lint": "oxlint .",
     "format": "oxfmt .",
-    "format:check": "oxfmt --check ."
+    "format:check": "oxfmt --check .",
+    "e2e": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
@@ -24,5 +25,8 @@
   "dependencies": {
     "hono": "^4.12.19",
     "vue": "^3.5.34"
-  }
+  },
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true
 }
