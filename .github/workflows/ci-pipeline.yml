@@ -41,7 +41,6 @@ jobs:
       - name: Format check (oxc)
         run: bun format:check
 
-
   build:
     name: Build
     needs: install
