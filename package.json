@@ -7,6 +7,7 @@
     "build": "vite build && tsc && tsc -p tsconfig.client.json --noEmit",
     "dev": "vite build && bun src/index.ts",
     "test": "bun test --pass-with-no-tests src/",
+    "test:coverage": "bun test --pass-with-no-tests --coverage --coverage-reporter=lcov src/",
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
