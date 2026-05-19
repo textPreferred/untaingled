@@ -1,0 +1,8 @@
+pre-commit:
+  commands:
+    lint:
+      run: bun lint
+      stage_fixed: true
+    format:
+      run: bun format
+      stage_fixed: true

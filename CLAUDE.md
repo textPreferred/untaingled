@@ -13,7 +13,8 @@ bun install        # install dependencies
 bun run build      # tsc compile to dist/
 bun dev            # run src/index.ts
 bun test           # run tests
-bun lint           # oxlint
+bun lint           # oxlint (fix)
+bun lint:check     # oxlint (check only)
 bun format         # oxfmt (fix)
 bun format:check   # oxfmt (check only)
 ```
