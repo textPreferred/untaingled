@@ -1,9 +1,8 @@
 # syntax=docker/dockerfile:1
-# Chainguard image digests are pinned and kept current by Renovate.
+# Image digests are pinned and kept current by Renovate.
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-# cgr.dev/chainguard/bun:latest-dev includes shell + build tools for native modules
-FROM cgr.dev/chainguard/bun:latest-dev AS builder
+FROM docker.io/oven/bun:slim@sha256:d56a2534ffd262e92c12fd3249d3924d296d97086da773f821d7d0477435ea04 AS builder
 
 WORKDIR /app
 
@@ -14,8 +13,7 @@ COPY . .
 RUN bun run build
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-# cgr.dev/chainguard/bun:latest is the minimal, distroless-style runtime image
-FROM cgr.dev/chainguard/bun:latest AS runtime
+FROM docker.io/oven/bun:slim@sha256:d56a2534ffd262e92c12fd3249d3924d296d97086da773f821d7d0477435ea04 AS runtime
 
 WORKDIR /app
 
