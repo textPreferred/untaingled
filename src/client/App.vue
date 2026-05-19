@@ -12,6 +12,11 @@ onMounted(() => {
   if (window.location.pathname === "/app") view.value = "app";
 });
 
+/**
+ * Submits a registration or login request to the server.
+ * @param action The action to perform, either "register" or "login".
+ * @returns {Promise<void>} Resolves when the request completes and handles redirection or error display.
+ */
 async function submit(action: "register" | "login") {
   error.value = "";
   const res = await fetch(`/api/${action}`, {

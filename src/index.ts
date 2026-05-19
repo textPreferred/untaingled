@@ -12,6 +12,13 @@ await db.migrate.latest();
 
 const app = new Hono();
 
+/**
+ * Starts a new user session by creating a session ID and setting it as a cookie.
+ *
+ * @param c The context object for the current request/response cycle.
+ * @param userId The ID of the user for whom the session is started.
+ * @param dbKey The database key used to create the session.
+ */
 export function startSession(c: Context, userId: number, dbKey: Buffer) {
   const sessionId = createSession(userId, dbKey);
   setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
