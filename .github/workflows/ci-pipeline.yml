@@ -36,7 +36,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Lint (oxc)
-        run: bun lint
+        run: bun lint:check
 
       - name: Format check (oxc)
         run: bun format:check
