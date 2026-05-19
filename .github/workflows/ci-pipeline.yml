@@ -113,7 +113,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write        # keyless cosign signing via OIDC
+      id-token: write # keyless cosign signing via OIDC
       security-events: write # Trivy SARIF upload
 
     steps:
