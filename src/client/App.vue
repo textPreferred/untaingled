@@ -6,7 +6,7 @@ type View = "auth" | "app";
 const view = ref<View>("auth");
 const username = ref("");
 const password = ref("");
-const error = ref("{}");
+const error = ref("");
 
 onMounted(() => {
   if (window.location.pathname === "/app") view.value = "app";

@@ -19,13 +19,21 @@ const app = new Hono();
  * @param userId The ID of the user for whom the session is started.
  * @param dbKey The database key used to create the session.
  */
-export function startSession(c: Context, userId: number, dbKey: Buffer) {
+type Credentials = { username: string; password: string };
+type UserRow = { id: number; password_hash: string; encrypted_db_key: string; key_salt: string };
+
+function startSession(c: Context, userId: number, dbKey: Buffer) {
   const sessionId = createSession(userId, dbKey);
   setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
 }
 
+function loginAndRedirect(c: Context, userId: number, dbKey: Buffer) {
+  startSession(c, userId, dbKey);
+  return c.redirect("/app", 302);
+}
+
 app.post("/api/register", async (c) => {
-  const { username, password } = await c.req.json<{ username: string; password: string }>();
+  const { username, password } = await c.req.json<Credentials>();
 
   const existing = await db("users").where({ username }).first();
   if (existing) return c.json({ error: "Username taken" }, 409);
@@ -44,25 +52,20 @@ app.post("/api/register", async (c) => {
     })
     .returning(["id"]);
 
-  startSession(c, user.id as number, dbKey);
-  return c.redirect("/app", 302);
+  return loginAndRedirect(c, user.id as number, dbKey);
 });
 
 app.post("/api/login", async (c) => {
-  const { username, password } = await c.req.json<{ username: string; password: string }>();
+  const { username, password } = await c.req.json<Credentials>();
 
-  const user = (await db("users").where({ username }).first()) as
-    | { id: number; password_hash: string; encrypted_db_key: string; key_salt: string }
-    | undefined;
-
+  const user = (await db("users").where({ username }).first()) as UserRow | undefined;
   if (!user) return c.json({ error: "Invalid credentials" }, 401);
 
   const valid = await Bun.password.verify(password, user.password_hash);
   if (!valid) return c.json({ error: "Invalid credentials" }, 401);
 
   const dbKey = decryptDbKey(user.encrypted_db_key, deriveKey(password, user.key_salt));
-  startSession(c, user.id, dbKey);
-  return c.redirect("/app", 302);
+  return loginAndRedirect(c, user.id, dbKey);
 });
 
 app.use("/*", serveStatic({ root: "./dist/client" }));
