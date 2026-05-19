@@ -13,6 +13,8 @@ const TAG_LENGTH = 16;
 export function generateSalt(): string {
   return randomBytes(SALT_LENGTH).toString("hex");
 }
+
+export function deriveKey(password: string, salt: string): Buffer {
   return scryptSync(password, salt, KEY_LENGTH) as Buffer;
 }
 
