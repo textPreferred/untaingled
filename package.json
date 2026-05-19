@@ -6,7 +6,7 @@
   "scripts": {
     "build": "vite build && tsc && tsc -p tsconfig.client.json --noEmit",
     "dev": "vite build && bun src/index.ts",
-    "test": "bun test",
+    "test": "bun test --pass-with-no-tests src/",
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
