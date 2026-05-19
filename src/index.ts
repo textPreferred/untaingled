@@ -12,7 +12,7 @@ await db.migrate.latest();
 
 const app = new Hono();
 
-function startSession(c: Context, userId: number, dbKey: Buffer) {
+export function startSession(c: Context, userId: number, dbKey: Buffer) {
   const sessionId = createSession(userId, dbKey);
   setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
 }
