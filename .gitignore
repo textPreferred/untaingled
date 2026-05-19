@@ -140,3 +140,7 @@ vite.config.ts.timestamp-*
 
 # SQLite databases
 *.db
+
+# Playwright
+test-results/
+playwright-report/
