@@ -11,7 +11,8 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "e2e": "playwright test",
-    "build:client": "vite build"
+    "build:client": "vite build",
+    "build:docker": "docker build -t untaingled ."
   },
   "dependencies": {
     "hono": "^4.12.19",
