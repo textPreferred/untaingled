@@ -29,7 +29,12 @@ app.post("/api/register", async (c) => {
   const encryptedDbKey = encryptDbKey(dbKey, deriveKey(password, salt));
 
   const [user] = await db("users")
-    .insert({ username, password_hash: passwordHash, encrypted_db_key: encryptedDbKey, key_salt: salt })
+    .insert({
+      username,
+      password_hash: passwordHash,
+      encrypted_db_key: encryptedDbKey,
+      key_salt: salt,
+    })
     .returning(["id"]);
 
   startSession(c, user.id as number, dbKey);
@@ -39,7 +44,7 @@ app.post("/api/register", async (c) => {
 app.post("/api/login", async (c) => {
   const { username, password } = await c.req.json<{ username: string; password: string }>();
 
-  const user = await db("users").where({ username }).first() as
+  const user = (await db("users").where({ username }).first()) as
     | { id: number; password_hash: string; encrypted_db_key: string; key_salt: string }
     | undefined;
 

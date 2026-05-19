@@ -23,7 +23,7 @@ async function submit(action: "register" | "login") {
   if (res.type === "opaqueredirect" || res.status === 0 || res.status === 302) {
     window.location.href = "/app";
   } else {
-    const data = await res.json() as { error: string };
+    const data = (await res.json()) as { error: string };
     error.value = data.error;
   }
 }
