@@ -14,7 +14,8 @@
     "format:check": "oxfmt --check .",
     "e2e": "playwright test",
     "build:client": "vite build",
-    "build:docker": "docker build -t untaingled ."
+    "build:image": "docker build -t untaingled .",
+    "start:image": "docker run -p 3000:3000 -v untaingled-data:/data untaingled"
   },
   "dependencies": {
     "hono": "^4.12.19",
