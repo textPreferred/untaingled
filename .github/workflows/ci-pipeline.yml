@@ -126,12 +126,12 @@ jobs:
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
           exit-code: "0"
-
-      - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@b1722c1245f90604c2c348f9d1624af97ea8fc6e # v3.28.19
-        if: always()
-        with:
-          sarif_file: trivy-results.sarif
+      # Requires GitHub advanced security (e.g. public repo)
+      # - name: Upload Trivy results to GitHub Security
+      #   uses: github/codeql-action/upload-sarif@b1722c1245f90604c2c348f9d1624af97ea8fc6e # v3.28.19
+      #   if: always()
+      #   with:
+      #     sarif_file: trivy-results.sarif
 
   docker-build:
     name: Build & scan image
