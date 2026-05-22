@@ -135,7 +135,7 @@ jobs:
 
   docker-build:
     name: Build & scan image
-    needs: [lint, build, test, test-e2e, security]
+    needs: install
     runs-on: ubuntu-latest
 
     permissions:
@@ -174,7 +174,7 @@ jobs:
 
   docker-publish:
     name: Publish image
-    needs: docker-build
+    needs: [lint, build, test, test-e2e, security, docker-build]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
