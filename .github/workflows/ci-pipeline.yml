@@ -76,7 +76,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Test
-        run: bun test
+        run: bun run test
 
   test-e2e:
     name: E2E tests (Playwright)
