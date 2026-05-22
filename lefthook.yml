@@ -1,8 +1,7 @@
 pre-commit:
   commands:
     lint:
-      glob: "*.{js,ts,jsx,tsx,vue}"
-      run: bun lint {staged_files}
+      run: bun lint
       stage_fixed: true
     format:
       glob: "*.{js,ts,jsx,tsx,vue,json,md,yaml,yml}"
