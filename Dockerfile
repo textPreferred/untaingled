@@ -2,7 +2,10 @@
 # Image digests are pinned and kept current by Renovate.
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM docker.io/oven/bun:slim@sha256:621f249399228db47cf34611ee662585e77e015250ed29d5d0932b2d3282f0b0 AS builder
+FROM cgr.dev/chainguard/node:latest-dev@sha256:393a2b14516c6084d10f6393380e148de08e16e35e7c92aa06009faf6818b388 AS builder
+
+USER root
+RUN npm install -g bun
 
 WORKDIR /app
 
@@ -13,7 +16,9 @@ COPY . .
 RUN bun run build
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM docker.io/oven/bun:slim@sha256:621f249399228db47cf34611ee662585e77e015250ed29d5d0932b2d3282f0b0 AS runtime
+FROM cgr.dev/chainguard/node:latest@sha256:57e45fe6f47851bab11c169ad3fa129331c38433b0502c289135d33f495de5b3 AS runtime
+
+COPY --from=builder /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
