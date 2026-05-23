@@ -86,7 +86,14 @@ app.post("/api/login", async (c) => {
 app.use("/*", serveStatic({ root: "./dist/client" }));
 app.use("/*", serveStatic({ path: "./dist/client/index.html" }));
 
-export default {
-  port: 3000,
-  fetch: app.fetch,
-};
+const server = Bun.serve({ port: 3000, fetch: app.fetch });
+console.log(`Listening on http://localhost:${server.port}`);
+
+async function shutdown() {
+  await server.stop();
+  await db.destroy();
+  process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
