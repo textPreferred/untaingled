@@ -14,6 +14,12 @@ export function generateSalt(): string {
   return randomBytes(SALT_LENGTH).toString("hex");
 }
 
+/**
+ * Derives a cryptographic key from a password and salt.
+ * @param password The password to derive the key from.
+ * @param salt The salt to use in key derivation.
+ * @returns The derived key as a Buffer.
+ */
 export function deriveKey(password: string, salt: string): Buffer {
   return scryptSync(password, salt, KEY_LENGTH) as Buffer;
 }
