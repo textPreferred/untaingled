@@ -31,9 +31,6 @@ COPY --from=builder /app/dist ./dist
 # Bun runs TypeScript directly at runtime; migrations are also .ts
 COPY --from=builder /app/src ./src
 
-# Create non-root user and switch to it
-RUN addgroup -S app && adduser -S app -G app app
-USER app
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
