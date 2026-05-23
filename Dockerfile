@@ -5,7 +5,11 @@
 FROM cgr.dev/chainguard/node:latest-dev@sha256:8fdce98075c1bf63ef1f28b2b1be1061378bf9b06435b44488a8604fadfacc83 AS builder
 
 USER root
-RUN npm install -g bun
+RUN wget -qO /tmp/bun.zip https://github.com/oven-sh/bun/releases/download/bun-v1.3.6/bun-linux-x64.zip \
+    && echo "9ba98d2134550d6690875b23a4f5c48e74b7cb267e8cc1b8f52605921c6c11ef  /tmp/bun.zip" | sha256sum -c - \
+    && unzip /tmp/bun.zip -d /tmp \
+    && mv /tmp/bun-linux-x64/bun /usr/local/bin/bun \
+    && rm -rf /tmp/bun.zip /tmp/bun-linux-x64
 
 WORKDIR /app
 
