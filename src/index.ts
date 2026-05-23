@@ -22,12 +22,12 @@ const app = new Hono();
 type Credentials = { username: string; password: string };
 type UserRow = { id: number; password_hash: string; encrypted_db_key: string; key_salt: string };
 
-function startSession(c: Context, userId: number, dbKey: Buffer) {
+export function startSession(c: Context, userId: number, dbKey: Buffer) {
   const sessionId = createSession(userId, dbKey);
   setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
 }
 
-function loginAndRedirect(c: Context, userId: number, dbKey: Buffer) {
+export function loginAndRedirect(c: Context, userId: number, dbKey: Buffer) {
   startSession(c, userId, dbKey);
   return c.redirect("/app", 302);
 }
