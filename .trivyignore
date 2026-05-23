@@ -1,0 +1,16 @@
+# Go stdlib CVEs flagged against the bun binary by Trivy.
+# Trivy reports all stdlib CVEs based on the Go version used to compile bun,
+# regardless of whether those packages are used. These are false positives.
+# See: https://github.com/oven-sh/bun/issues/25431
+#      https://github.com/aquasecurity/trivy/discussions/9490
+CVE-2026-25679
+CVE-2026-27137
+CVE-2026-32280
+CVE-2026-32281
+CVE-2026-32283
+CVE-2026-33810
+CVE-2026-33811
+CVE-2026-33814
+CVE-2026-39820
+CVE-2026-39836
+CVE-2026-42499
