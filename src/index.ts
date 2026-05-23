@@ -20,7 +20,12 @@ const app = new Hono();
  * @param dbKey The database key used to create the session.
  */
 type Credentials = { username: string; password: string };
-type UserRow = { id: number; password_hash: string; encrypted_db_key: string; key_salt: string };
+type UserRow = {
+  id: number;
+  password_hash: string;
+  encrypted_db_key: string;
+  key_salt: string;
+};
 
 /**
  * Starts a new user session by creating a session and setting a session cookie.
@@ -89,6 +94,11 @@ app.use("/*", serveStatic({ path: "./dist/client/index.html" }));
 const server = Bun.serve({ port: 3000, fetch: app.fetch });
 console.log(`Listening on http://localhost:${server.port}`);
 
+/**
+ * Gracefully shuts down the server and database, then exits the process.
+ *
+ * @returns {Promise<void>} Resolves when shutdown is complete.
+ */
 async function shutdown() {
   await server.stop();
   await db.destroy();
