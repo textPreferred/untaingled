@@ -22,11 +22,26 @@ const app = new Hono();
 type Credentials = { username: string; password: string };
 type UserRow = { id: number; password_hash: string; encrypted_db_key: string; key_salt: string };
 
+/**
+ * Starts a new user session by creating a session and setting a session cookie.
+ *
+ * @param c - The context object used for handling the request/response cycle.
+ * @param userId - The user ID for which the session is to be created.
+ * @param dbKey - The database key buffer used to secure the session.
+ */
 function startSession(c: Context, userId: number, dbKey: Buffer) {
   const sessionId = createSession(userId, dbKey);
   setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
 }
 
+/**
+ * Logs in a user by starting a session and redirects them to the application.
+ *
+ * @param c - The request context containing request and response objects.
+ * @param userId - The ID of the user to log in.
+ * @param dbKey - The database key buffer used for session encryption.
+ * @returns The result of the redirect operation.
+ */
 function loginAndRedirect(c: Context, userId: number, dbKey: Buffer) {
   startSession(c, userId, dbKey);
   return c.redirect("/app", 302);
