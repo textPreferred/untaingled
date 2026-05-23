@@ -29,15 +29,8 @@ WORKDIR /app
 # Copy production node_modules (includes native sqlite3 bindings compiled above)
 COPY --from=builder /app/node_modules ./node_modules
 
-# Copy compiled server and Vite client assets
+# Copy compiled server, Vite client assets, and migrations
 COPY --from=builder /app/dist ./dist
-
-# Bun runs TypeScript directly at runtime; migrations are also .ts
-COPY --from=builder /app/src ./src
-
-COPY --from=builder /app/migrations ./migrations
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 EXPOSE 3000
 
@@ -46,4 +39,4 @@ ENV USERS_DB_PATH=/data/users.db
 
 VOLUME ["/data"]
 
-ENTRYPOINT ["bun", "src/index.ts"]
+ENTRYPOINT ["bun", "dist/index.js"]

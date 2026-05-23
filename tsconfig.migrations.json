@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Bundler",
+    "outDir": "dist/migrations",
+    "rootDir": "migrations",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    "lib": ["ES2022"],
+    "skipLibCheck": true
+  },
+  "include": ["migrations/**/*"]
+}
