@@ -15,7 +15,9 @@ bun install
 | `bun build:client`  | Build client only (vite)                 |
 | `bun test`          | Run unit tests                           |
 | `bun test:coverage` | Run unit tests with LCOV coverage report |
-| `bun e2e`           | Run Playwright end-to-end tests          |
+| `bun test:e2e`      | Run Playwright end-to-end tests          |
+| `bun build:image`   | Build Docker image                       |
+| `bun start:image`   | Run Docker image on port 3000            |
 | `bun lint`          | Lint and auto-fix with oxlint            |
 | `bun lint:check`    | Lint check only (no fixes)               |
 | `bun format`        | Format and auto-fix with oxfmt           |
