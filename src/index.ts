@@ -29,7 +29,7 @@ type UserRow = { id: number; password_hash: string; encrypted_db_key: string; ke
  * @param userId - The user ID for which the session is to be created.
  * @param dbKey - The database key buffer used to secure the session.
  */
-function startSession(c: Context, userId: number, dbKey: Buffer) {
+export function startSession(c: Context, userId: number, dbKey: Buffer) {
   const sessionId = createSession(userId, dbKey);
   setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
 }
@@ -42,7 +42,7 @@ function startSession(c: Context, userId: number, dbKey: Buffer) {
  * @param dbKey - The database key buffer used for session encryption.
  * @returns The result of the redirect operation.
  */
-function loginAndRedirect(c: Context, userId: number, dbKey: Buffer) {
+export function loginAndRedirect(c: Context, userId: number, dbKey: Buffer) {
   startSession(c, userId, dbKey);
   return c.redirect("/app", 302);
 }
