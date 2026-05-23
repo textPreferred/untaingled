@@ -2,7 +2,7 @@
 # Image digests are pinned and kept current by Renovate.
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM cgr.dev/chainguard/node:latest-dev@sha256:393a2b14516c6084d10f6393380e148de08e16e35e7c92aa06009faf6818b388 AS builder
+FROM cgr.dev/chainguard/node:latest-dev@sha256:8fdce98075c1bf63ef1f28b2b1be1061378bf9b06435b44488a8604fadfacc83 AS builder
 
 USER root
 RUN npm install -g bun
