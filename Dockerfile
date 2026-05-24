@@ -2,7 +2,7 @@
 # Image digests are pinned and kept current by Renovate.
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM cgr.dev/chainguard/node:latest-dev@sha256:8fdce98075c1bf63ef1f28b2b1be1061378bf9b06435b44488a8604fadfacc83 AS builder
+FROM cgr.dev/chainguard/node:latest-dev@sha256:e0909ba0af1e7866ad6098c1e483e13074a3283db7689c15387e0b849a6716b2 AS builder
 
 USER root
 RUN wget -qO /tmp/bun.zip https://github.com/oven-sh/bun/releases/download/bun-v1.3.6/bun-linux-x64.zip \
