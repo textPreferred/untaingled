@@ -61,6 +61,48 @@ test("user can delete an event", async ({ page }) => {
   await expect(eventList(page).getByText("Event to delete")).not.toBeVisible();
 });
 
+test("graph view shows event nodes", async ({ page }) => {
+  await registerAndGoToApp(page, "user-graph-nodes");
+
+  await page.getByLabel("Title").fill("Alpha");
+  await page.getByRole("button", { name: "Add event" }).click();
+  await expect(eventList(page).getByText("Alpha")).toBeVisible();
+
+  await page.getByLabel("Title").fill("Beta");
+  await page.getByRole("button", { name: "Add event" }).click();
+  await expect(eventList(page).getByText("Beta")).toBeVisible();
+
+  await page.getByRole("button", { name: "Graph" }).click();
+
+  const graph = page.getByRole("region", { name: "Event graph" });
+  await expect(graph).toBeVisible();
+  await expect(graph.getByText("Alpha")).toBeVisible();
+  await expect(graph.getByText("Beta")).toBeVisible();
+});
+
+test("graph view shows edges between rooted events", async ({ page }) => {
+  await registerAndGoToApp(page, "user-graph-edges");
+
+  await page.getByLabel("Title").fill("Parent");
+  await page.getByRole("button", { name: "Add event" }).click();
+  await expect(eventList(page).getByText("Parent")).toBeVisible();
+
+  await page.getByLabel("Title").fill("Child");
+  await page.getByLabel("Rooted in").selectOption({ label: "Parent" });
+  await page.getByRole("button", { name: "Add event" }).click();
+  await expect(eventList(page).getByText("Child")).toBeVisible();
+
+  await page.getByRole("button", { name: "Graph" }).click();
+
+  const graph = page.getByRole("region", { name: "Event graph" });
+  await expect(graph.getByText("Parent")).toBeVisible();
+  await expect(graph.getByText("Child")).toBeVisible();
+
+  const svg = graph.locator("svg");
+  await expect(svg).toBeVisible();
+  await expect(svg.locator("line, path[class*='edge'], polyline").first()).toBeVisible();
+});
+
 test("deleting a root event clears the root reference on child events", async ({ page }) => {
   await registerAndGoToApp(page, "user-event-cascade");
 
