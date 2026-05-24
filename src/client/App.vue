@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from "vue";
 
 type View = "auth" | "app";
+type AppTab = "list" | "graph";
 type EventRow = {
   id: number;
   title: string;
@@ -9,7 +10,13 @@ type EventRow = {
   root_event_id: number | null;
 };
 
+const NODE_W = 120;
+const NODE_H = 36;
+const H_GAP = 40;
+const V_GAP = 60;
+
 const view = ref<View>("auth");
+const appTab = ref<AppTab>("list");
 const username = ref("");
 const password = ref("");
 const error = ref("");
@@ -53,6 +60,76 @@ function rootTitle(event: EventRow): string | null {
 
 const rootSelectId = computed(() => newRootEventId.value ?? "");
 
+type GraphNode = { id: number; title: string; x: number; y: number };
+type GraphEdge = { x1: number; y1: number; x2: number; y2: number };
+
+const graph = computed(() => {
+  const evs = events.value;
+  if (evs.length === 0) return { nodes: [], edges: [], width: 0, height: 0 };
+
+  const childrenOf = new Map<number | null, number[]>();
+  for (const e of evs) {
+    const key = e.root_event_id;
+    if (!childrenOf.has(key)) childrenOf.set(key, []);
+    childrenOf.get(key)!.push(e.id);
+  }
+
+  const byId = new Map(evs.map((e) => [e.id, e]));
+  const nodes: GraphNode[] = [];
+
+  // Assign positions layer by layer using BFS from roots
+  const roots = childrenOf.get(null) ?? [];
+  let colCursor = 0;
+
+  function place(id: number, depth: number, colStart: number): number {
+    const children = childrenOf.get(id) ?? [];
+    if (children.length === 0) {
+      nodes.push({
+        id,
+        title: byId.get(id)!.title,
+        x: colStart * (NODE_W + H_GAP),
+        y: depth * (NODE_H + V_GAP),
+      });
+      return colStart + 1;
+    }
+    let col = colStart;
+    const childCols: number[] = [];
+    for (const cid of children) {
+      childCols.push(col);
+      col = place(cid, depth + 1, col);
+    }
+    const firstChild = childCols[0]!;
+    const lastChild = childCols[childCols.length - 1]!;
+    const cx = ((firstChild + lastChild) / 2) * (NODE_W + H_GAP);
+    nodes.push({ id, title: byId.get(id)!.title, x: cx, y: depth * (NODE_H + V_GAP) });
+    return col;
+  }
+
+  for (const rid of roots) {
+    colCursor = place(rid, 0, colCursor);
+  }
+
+  const edges: GraphEdge[] = [];
+  for (const e of evs) {
+    if (e.root_event_id === null) continue;
+    const parent = nodes.find((n) => n.id === e.root_event_id);
+    const child = nodes.find((n) => n.id === e.id);
+    if (parent && child) {
+      edges.push({
+        x1: parent.x + NODE_W / 2,
+        y1: parent.y + NODE_H,
+        x2: child.x + NODE_W / 2,
+        y2: child.y,
+      });
+    }
+  }
+
+  const maxX = Math.max(...nodes.map((n) => n.x)) + NODE_W + 1;
+  const maxY = Math.max(...nodes.map((n) => n.y)) + NODE_H + 1;
+
+  return { nodes, edges, width: maxX, height: maxY };
+});
+
 onMounted(() => {
   if (globalThis.location.pathname === "/app") {
     view.value = "app";
@@ -60,11 +137,6 @@ onMounted(() => {
   }
 });
 
-/**
- * Submits a registration or login request to the server.
- * @param action The action to perform, either "register" or "login".
- * @returns {Promise<void>} Resolves when the request completes and handles redirection or error display.
- */
 async function submit(action: "register" | "login") {
   error.value = "";
   const res = await fetch(`/api/${action}`, {
@@ -134,7 +206,22 @@ async function submit(action: "register" | "login") {
         </div>
       </form>
 
-      <ul class="event-list">
+      <div class="tab-bar">
+        <button
+          :class="appTab === 'list' ? 'btn-primary' : 'btn-secondary'"
+          @click="appTab = 'list'"
+        >
+          List
+        </button>
+        <button
+          :class="appTab === 'graph' ? 'btn-primary' : 'btn-secondary'"
+          @click="appTab = 'graph'"
+        >
+          Graph
+        </button>
+      </div>
+
+      <ul v-if="appTab === 'list'" class="event-list">
         <li v-for="event in events" :key="event.id">
           <div class="event-header">
             <strong>{{ event.title }}</strong>
@@ -144,6 +231,43 @@ async function submit(action: "register" | "login") {
           <p v-if="rootTitle(event)" class="event-root">Rooted in: {{ rootTitle(event) }}</p>
         </li>
       </ul>
+
+      <section v-else class="graph-view" aria-label="Event graph">
+        <p v-if="events.length === 0" class="graph-empty">No events yet.</p>
+        <svg
+          v-else
+          :viewBox="`0 0 ${graph.width} ${graph.height}`"
+          :width="graph.width"
+          :height="graph.height"
+          class="graph-svg"
+        >
+          <line
+            v-for="(edge, i) in graph.edges"
+            :key="i"
+            :x1="edge.x1"
+            :y1="edge.y1"
+            :x2="edge.x2"
+            :y2="edge.y2"
+            class="graph-edge"
+          />
+          <g
+            v-for="node in graph.nodes"
+            :key="node.id"
+            :transform="`translate(${node.x},${node.y})`"
+          >
+            <rect :width="NODE_W" :height="NODE_H" rx="4" class="graph-node" />
+            <text
+              :x="NODE_W / 2"
+              :y="NODE_H / 2"
+              dominant-baseline="middle"
+              text-anchor="middle"
+              class="graph-label"
+            >
+              {{ node.title }}
+            </text>
+          </g>
+        </svg>
+      </section>
     </div>
   </main>
 </template>
@@ -336,5 +460,42 @@ select {
   margin: 0.25rem 0 0;
   font-size: 0.8125rem;
   color: #888;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.graph-view {
+  overflow-x: auto;
+  padding: 0.5rem 0;
+}
+
+.graph-empty {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.graph-svg {
+  display: block;
+}
+
+.graph-edge {
+  stroke: #aaa;
+  stroke-width: 1.5;
+}
+
+.graph-node {
+  fill: #f5f5f5;
+  stroke: #d0d0d0;
+  stroke-width: 1;
+}
+
+.graph-label {
+  font-size: 12px;
+  font-family: inherit;
+  fill: #1a1a1a;
 }
 </style>

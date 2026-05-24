@@ -95,12 +95,12 @@ test("graph view shows edges between rooted events", async ({ page }) => {
   await page.getByRole("button", { name: "Graph" }).click();
 
   const graph = page.getByRole("region", { name: "Event graph" });
-  await expect(graph.getByText("Parent")).toBeVisible();
-  await expect(graph.getByText("Child")).toBeVisible();
+  await expect(graph.getByText("Parent", { exact: true })).toBeVisible();
+  await expect(graph.getByText("Child", { exact: true })).toBeVisible();
 
   const svg = graph.locator("svg");
   await expect(svg).toBeVisible();
-  await expect(svg.locator("line, path[class*='edge'], polyline").first()).toBeVisible();
+  await expect(svg.locator("line.graph-edge")).not.toHaveCount(0);
 });
 
 test("deleting a root event clears the root reference on child events", async ({ page }) => {
