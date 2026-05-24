@@ -26,6 +26,12 @@ type UserRow = {
   encrypted_db_key: string;
   key_salt: string;
 };
+type EventRow = {
+  id: number;
+  title: string;
+  description: string | null;
+  root_event_id: number | null;
+};
 
 /**
  * Starts a new user session by creating a session and setting a session cookie.
@@ -86,6 +92,53 @@ app.post("/api/login", async (c) => {
 
   const dbKey = decryptDbKey(user.encrypted_db_key, deriveKey(password, user.key_salt));
   return loginAndRedirect(c, user.id, dbKey);
+});
+
+app.get("/api/events", async (c) => {
+  const events = await db("events").select<EventRow[]>();
+  return c.json(events);
+});
+
+app.post("/api/events", async (c) => {
+  const body = await c.req.json<{ title?: string; description?: string; root_event_id?: number }>();
+  if (!body.title?.trim()) return c.json({ error: "Title is required" }, 400);
+  const [event] = await db("events")
+    .insert({
+      title: body.title.trim(),
+      description: body.description ?? null,
+      root_event_id: body.root_event_id ?? null,
+    })
+    .returning<EventRow[]>(["id", "title", "description", "root_event_id"]);
+  return c.json(event, 201);
+});
+
+app.patch("/api/events/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const existing = await db("events").where({ id }).first<EventRow>();
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  const body = await c.req.json<{
+    title?: string;
+    description?: string;
+    root_event_id?: number | null;
+  }>();
+  if (body.title !== undefined && !body.title.trim())
+    return c.json({ error: "Title is required" }, 400);
+  const [event] = await db("events")
+    .where({ id })
+    .update({
+      ...(body.title !== undefined ? { title: body.title.trim() } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.root_event_id !== undefined ? { root_event_id: body.root_event_id } : {}),
+    })
+    .returning<EventRow[]>(["id", "title", "description", "root_event_id"]);
+  return c.json(event);
+});
+
+app.delete("/api/events/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const deleted = await db("events").where({ id }).delete();
+  if (!deleted) return c.json({ error: "Not found" }, 404);
+  return c.body(null, 204);
 });
 
 app.use("/*", serveStatic({ root: "./dist/client" }));

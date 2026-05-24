@@ -1,15 +1,63 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 
 type View = "auth" | "app";
+type EventRow = {
+  id: number;
+  title: string;
+  description: string | null;
+  root_event_id: number | null;
+};
 
 const view = ref<View>("auth");
 const username = ref("");
 const password = ref("");
 const error = ref("");
 
+const events = ref<EventRow[]>([]);
+const newTitle = ref("");
+const newDescription = ref("");
+const newRootEventId = ref<number | null>(null);
+
+async function loadEvents() {
+  const res = await fetch("/api/events");
+  events.value = (await res.json()) as EventRow[];
+}
+
+async function createEvent() {
+  if (!newTitle.value.trim()) return;
+  await fetch("/api/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: newTitle.value,
+      description: newDescription.value || null,
+      root_event_id: newRootEventId.value,
+    }),
+  });
+  newTitle.value = "";
+  newDescription.value = "";
+  newRootEventId.value = null;
+  await loadEvents();
+}
+
+async function deleteEvent(id: number) {
+  await fetch(`/api/events/${id}`, { method: "DELETE" });
+  await loadEvents();
+}
+
+function rootTitle(event: EventRow): string | null {
+  if (event.root_event_id === null) return null;
+  return events.value.find((e) => e.id === event.root_event_id)?.title ?? null;
+}
+
+const rootSelectId = computed(() => newRootEventId.value ?? "");
+
 onMounted(() => {
-  if (globalThis.location.pathname === "/app") view.value = "app";
+  if (globalThis.location.pathname === "/app") {
+    view.value = "app";
+    void loadEvents();
+  }
 });
 
 /**
@@ -54,7 +102,49 @@ async function submit(action: "register" | "login") {
     </div>
   </main>
   <main v-else class="app-view">
-    <h1>Welcome to the app</h1>
+    <div class="card">
+      <h1>Events</h1>
+
+      <form class="event-form" @submit.prevent="createEvent">
+        <div class="field">
+          <label for="new-title">Title</label>
+          <input id="new-title" v-model="newTitle" type="text" required />
+        </div>
+        <div class="field">
+          <label for="new-description">Description</label>
+          <textarea id="new-description" v-model="newDescription" rows="2" />
+        </div>
+        <div class="field">
+          <label for="new-root">Rooted in</label>
+          <select
+            id="new-root"
+            :value="rootSelectId"
+            @change="
+              newRootEventId = ($event.target as HTMLSelectElement).value
+                ? Number(($event.target as HTMLSelectElement).value)
+                : null
+            "
+          >
+            <option value="">None</option>
+            <option v-for="e in events" :key="e.id" :value="e.id">{{ e.title }}</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn-primary">Add event</button>
+        </div>
+      </form>
+
+      <ul class="event-list">
+        <li v-for="event in events" :key="event.id">
+          <div class="event-header">
+            <strong>{{ event.title }}</strong>
+            <button class="btn-secondary" @click="deleteEvent(event.id)">Delete</button>
+          </div>
+          <p v-if="event.description" class="event-description">{{ event.description }}</p>
+          <p v-if="rootTitle(event)" class="event-root">Rooted in: {{ rootTitle(event) }}</p>
+        </li>
+      </ul>
+    </div>
   </main>
 </template>
 
@@ -180,8 +270,71 @@ button {
   background: #f5f5f5;
 }
 
-.app-view h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
+.app-view {
+  align-items: flex-start;
+  padding-top: 2rem;
+}
+
+.app-view .card {
+  max-width: 600px;
+  width: 100%;
+}
+
+.event-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+textarea {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+select {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #fff;
+}
+
+.event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.event-list li {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.event-description {
+  margin: 0.375rem 0 0;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.event-root {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: #888;
 }
 </style>
