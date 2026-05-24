@@ -1,0 +1,3 @@
+- Follow Red-Green-Refactor. Do commit the red test.
+- Prefer simple over clever.
+- Do not abbreviate names.
