@@ -9,7 +9,7 @@ const password = ref("");
 const error = ref("");
 
 onMounted(() => {
-  if (window.location.pathname === "/app") view.value = "app";
+  if (globalThis.location.pathname === "/app") view.value = "app";
 });
 
 /**
@@ -26,7 +26,7 @@ async function submit(action: "register" | "login") {
     redirect: "manual",
   });
   if (res.type === "opaqueredirect" || res.status === 0 || res.status === 302) {
-    window.location.href = "/app";
+    globalThis.location.href = "/app";
   } else {
     const data = (await res.json()) as { error: string };
     error.value = data.error;

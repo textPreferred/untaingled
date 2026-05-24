@@ -1,4 +1,4 @@
-import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "crypto";
+import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const KEY_LENGTH = 32;
@@ -21,7 +21,7 @@ export function generateSalt(): string {
  * @returns The derived key as a Buffer.
  */
 export function deriveKey(password: string, salt: string): Buffer {
-  return scryptSync(password, salt, KEY_LENGTH) as Buffer;
+  return scryptSync(password, salt, KEY_LENGTH);
 }
 
 /**

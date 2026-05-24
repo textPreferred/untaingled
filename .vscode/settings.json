@@ -1,0 +1,6 @@
+{
+  "sonarlint.connectedMode.project": {
+    "connectionId": "textpreferred",
+    "projectKey": "textPreferred_untaingled"
+  }
+}
