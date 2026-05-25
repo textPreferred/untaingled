@@ -18,6 +18,8 @@ bun install
 | `bun test:e2e`      | Run Playwright end-to-end tests          |
 | `bun build:image`   | Build Docker image                       |
 | `bun start:image`   | Run Docker image on port 3000            |
+| `bun db:start`      | Start local Postgres container           |
+| `bun db:stop`       | Stop and remove local Postgres container |
 | `bun lint`          | Lint and auto-fix with oxlint            |
 | `bun lint:check`    | Lint check only (no fixes)               |
 | `bun format`        | Format and auto-fix with oxfmt           |
@@ -28,13 +30,11 @@ bun install
 `DATABASE_URL` must be set for `bun dev` and `bun test:e2e`. Start a local Postgres container:
 
 ```bash
-docker run -d --name pg-dev \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=untaingled \
-  -p 5432:5432 \
-  postgres:17
+bun db:start
 export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/untaingled
 ```
+
+Stop it with `bun db:stop`.
 
 Migrations run automatically on server start via `db.migrate.latest()`.
 
