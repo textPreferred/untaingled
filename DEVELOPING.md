@@ -27,16 +27,9 @@ bun install
 
 ## Database
 
-`DATABASE_URL` must be set for `bun dev`. Start a local Postgres container:
+Both `bun dev` and `bun test:e2e` manage their own Postgres containers automatically — no setup needed.
 
-```bash
-bun db:start
-export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/untaingled
-```
-
-Stop it with `bun db:stop`.
-
-`bun test:e2e` manages its own Postgres container automatically — no setup needed.
+Use `bun db:start` / `bun db:stop` only if you need a persistent container (e.g. to inspect data between dev restarts).
 
 Migrations run automatically on server start via `db.migrate.latest()`.
 
