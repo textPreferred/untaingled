@@ -1,3 +1,4 @@
 - Follow Red-Green-Refactor. Do commit the red test.
+- Existing data must not be lost or get corrupted. Do use migrations to make sure.
 - Prefer simple over clever.
 - Do not abbreviate names.
