@@ -187,7 +187,11 @@ async function submit(action: "register" | "login") {
           <textarea id="new-description" v-model="newDescription" rows="2" />
         </div>
         <div class="field">
-          <label for="new-root">Rooted in</label>
+          <label
+            for="new-root"
+            title="The new event started while the other one was ongoing, like getting married while you were at university"
+            >Took place while</label
+          >
           <select
             id="new-root"
             :value="rootSelectId"
@@ -228,7 +232,7 @@ async function submit(action: "register" | "login") {
             <button class="btn-secondary" @click="deleteEvent(event.id)">Delete</button>
           </div>
           <p v-if="event.description" class="event-description">{{ event.description }}</p>
-          <p v-if="rootTitle(event)" class="event-root">Rooted in: {{ rootTitle(event) }}</p>
+          <p v-if="rootTitle(event)" class="event-root">Took place while: {{ rootTitle(event) }}</p>
         </li>
       </ul>
 
