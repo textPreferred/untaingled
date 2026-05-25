@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-async function registerAndGoToApp(page: import("@playwright/test").Page, username: string) {
+type Page = import("@playwright/test").Page;
+
+async function registerAndGoToApp(page: Page, username: string) {
   await page.goto("/");
   await page.getByLabel("Username").fill(username);
   await page.getByLabel("Password").fill("correct-horse-battery-staple");
@@ -8,49 +10,47 @@ async function registerAndGoToApp(page: import("@playwright/test").Page, usernam
   await expect(page).toHaveURL("/app");
 }
 
-const eventList = (page: import("@playwright/test").Page) => page.getByRole("list");
+const eventList = (page: Page) => page.getByRole("list");
+
+async function addEvent(
+  page: Page,
+  title: string,
+  options?: { description?: string; rootedIn?: string },
+) {
+  await page.getByLabel("Title").fill(title);
+  if (options?.description) await page.getByLabel("Description").fill(options.description);
+  if (options?.rootedIn)
+    await page.getByLabel("Rooted in").selectOption({ label: options.rootedIn });
+  await page.getByRole("button", { name: "Add event" }).click();
+  await expect(eventList(page).getByText(title)).toBeVisible();
+}
 
 test("user can create an event with title only", async ({ page }) => {
   await registerAndGoToApp(page, "user-event-title");
 
-  await page.getByLabel("Title").fill("My first event");
-  await page.getByRole("button", { name: "Add event" }).click();
-
-  await expect(eventList(page).getByText("My first event")).toBeVisible();
+  await addEvent(page, "My first event");
 });
 
 test("user can create an event with a description", async ({ page }) => {
   await registerAndGoToApp(page, "user-event-desc");
 
-  await page.getByLabel("Title").fill("Event with description");
-  await page.getByLabel("Description").fill("Some details here");
-  await page.getByRole("button", { name: "Add event" }).click();
+  await addEvent(page, "Event with description", { description: "Some details here" });
 
-  await expect(eventList(page).getByText("Event with description")).toBeVisible();
   await expect(eventList(page).getByText("Some details here")).toBeVisible();
 });
 
 test("user can create an event rooted in another", async ({ page }) => {
   await registerAndGoToApp(page, "user-event-root");
 
-  await page.getByLabel("Title").fill("Root event");
-  await page.getByRole("button", { name: "Add event" }).click();
-  await expect(eventList(page).getByText("Root event")).toBeVisible();
-
-  await page.getByLabel("Title").fill("Child event");
-  await page.getByLabel("Rooted in").selectOption({ label: "Root event" });
-  await page.getByRole("button", { name: "Add event" }).click();
-
-  await expect(eventList(page).getByText("Child event")).toBeVisible();
+  await addEvent(page, "Root event");
+  await addEvent(page, "Child event", { rootedIn: "Root event" });
   await expect(eventList(page).getByText("Root event")).toHaveCount(2);
 });
 
 test("user can delete an event", async ({ page }) => {
   await registerAndGoToApp(page, "user-event-delete");
 
-  await page.getByLabel("Title").fill("Event to delete");
-  await page.getByRole("button", { name: "Add event" }).click();
-  await expect(eventList(page).getByText("Event to delete")).toBeVisible();
+  await addEvent(page, "Event to delete");
 
   await page
     .getByRole("listitem")
@@ -64,13 +64,8 @@ test("user can delete an event", async ({ page }) => {
 test("graph view shows event nodes", async ({ page }) => {
   await registerAndGoToApp(page, "user-graph-nodes");
 
-  await page.getByLabel("Title").fill("Alpha");
-  await page.getByRole("button", { name: "Add event" }).click();
-  await expect(eventList(page).getByText("Alpha")).toBeVisible();
-
-  await page.getByLabel("Title").fill("Beta");
-  await page.getByRole("button", { name: "Add event" }).click();
-  await expect(eventList(page).getByText("Beta")).toBeVisible();
+  await addEvent(page, "Alpha");
+  await addEvent(page, "Beta");
 
   await page.getByRole("button", { name: "Graph" }).click();
 
@@ -83,14 +78,8 @@ test("graph view shows event nodes", async ({ page }) => {
 test("graph view shows edges between rooted events", async ({ page }) => {
   await registerAndGoToApp(page, "user-graph-edges");
 
-  await page.getByLabel("Title").fill("Parent");
-  await page.getByRole("button", { name: "Add event" }).click();
-  await expect(eventList(page).getByText("Parent")).toBeVisible();
-
-  await page.getByLabel("Title").fill("Child");
-  await page.getByLabel("Rooted in").selectOption({ label: "Parent" });
-  await page.getByRole("button", { name: "Add event" }).click();
-  await expect(eventList(page).getByText("Child")).toBeVisible();
+  await addEvent(page, "Parent");
+  await addEvent(page, "Child", { rootedIn: "Parent" });
 
   await page.getByRole("button", { name: "Graph" }).click();
 
@@ -106,18 +95,8 @@ test("graph view shows edges between rooted events", async ({ page }) => {
 test("deleting a root event clears the root reference on child events", async ({ page }) => {
   await registerAndGoToApp(page, "user-event-cascade");
 
-  await page.getByLabel("Title").fill("Cascade root");
-  await page.getByRole("button", { name: "Add event" }).click();
-  await expect(
-    eventList(page).getByRole("strong").filter({ hasText: "Cascade root" }),
-  ).toBeVisible();
-
-  await page.getByLabel("Title").fill("Cascade child");
-  await page.getByLabel("Rooted in").selectOption({ label: "Cascade root" });
-  await page.getByRole("button", { name: "Add event" }).click();
-  await expect(
-    eventList(page).getByRole("strong").filter({ hasText: "Cascade child" }),
-  ).toBeVisible();
+  await addEvent(page, "Cascade root");
+  await addEvent(page, "Cascade child", { rootedIn: "Cascade root" });
 
   await page
     .getByRole("listitem")
