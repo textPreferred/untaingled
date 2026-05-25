@@ -1,0 +1,1 @@
+- Events can be rooted in other events. This means that they start while the other is happening.

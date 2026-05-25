@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Use **bun** for everything — package management, running TypeScript, and tests.
 
+Deployment works via compiled JavaScript.
+
 ## Commands
 
 ```bash
@@ -26,3 +28,15 @@ Strict mode with additional checks: `noUncheckedIndexedAccess`, `exactOptionalPr
 ## CI pipeline
 
 Defined in [.github/ci-pipeline.yml](.github/ci-pipeline.yml). On push/PR to `main` it runs lint, format check, test, and build in parallel (after install). All must pass for Renovate auto-merge to trigger.
+
+## Coding Preferences
+
+Defined in [./doc/engineering.md](./doc/engineering.md). Keep updated with explicit decisions in claude sessions.
+
+## Domain Knowledge
+
+Collected in [./doc/domain.md](./doc/domain.md). Keep updated with explicit decisions in claude sessions.
+
+## Docs
+
+Keep [./DEVELOPING.md](./DEVELOPING.md) up-to-date if scripts or tools change.
