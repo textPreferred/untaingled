@@ -20,7 +20,7 @@ async function addEvent(
   await page.getByLabel("Title").fill(title);
   if (options?.description) await page.getByLabel("Description").fill(options.description);
   if (options?.rootedIn)
-    await page.getByLabel("Rooted in").selectOption({ label: options.rootedIn });
+    await page.getByLabel("Took place while").selectOption({ label: options.rootedIn });
   await page.getByRole("button", { name: "Add event" }).click();
   await expect(eventList(page).getByText(title)).toBeVisible();
 }
@@ -109,5 +109,5 @@ test("deleting a root event clears the root reference on child events", async ({
 
   const childItem = page.getByRole("listitem").filter({ hasText: "Cascade child" });
   await expect(childItem).toBeVisible();
-  await expect(childItem.getByText("Rooted in:")).not.toBeVisible();
+  await expect(childItem.getByText("Took place while:")).not.toBeVisible();
 });
