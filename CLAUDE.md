@@ -37,6 +37,10 @@ Defined in [./doc/engineering.md](./doc/engineering.md). Keep updated with expli
 
 Collected in [./doc/domain.md](./doc/domain.md). Keep updated with explicit decisions in claude sessions.
 
+## Environment
+
+`DATABASE_URL` must be set to a PostgreSQL connection string before running `bun dev` or `bun test:e2e`. See [DEVELOPING.md](./DEVELOPING.md) for a one-liner to start a local Postgres container.
+
 ## Docs
 
 Keep [./DEVELOPING.md](./DEVELOPING.md) up-to-date if scripts or tools change.
