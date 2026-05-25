@@ -1,16 +1,16 @@
 import type { Knex } from "knex";
 
 const compiled = import.meta.url.includes("/dist/");
+const databaseUrl = process.env["DATABASE_URL"];
+if (!databaseUrl) throw new Error("DATABASE_URL is not set");
+
 const config: Knex.Config = {
-  client: "sqlite3",
-  connection: {
-    filename: process.env["USERS_DB_PATH"] ?? "users.db",
-  },
+  client: "pg",
+  connection: databaseUrl,
   migrations: {
     directory: new URL(compiled ? "./migrations" : "../migrations", import.meta.url).pathname,
     extension: compiled ? "js" : "ts",
   },
-  useNullAsDefault: true,
 };
 
 export default config;
