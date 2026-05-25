@@ -29,17 +29,11 @@ COPY --from=builder /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
-# Copy production node_modules (includes native sqlite3 bindings compiled above)
 COPY --from=builder /app/node_modules ./node_modules
 
 # Copy compiled server, Vite client assets, and migrations
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
-
-# Mount a persistent volume at /data for the SQLite database file
-ENV USERS_DB_PATH=/data/users.db
-
-VOLUME ["/data"]
 
 ENTRYPOINT ["bun", "dist/index.js"]

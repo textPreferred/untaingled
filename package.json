@@ -15,7 +15,7 @@
     "test:e2e": "playwright test",
     "build:client": "vite build",
     "build:image": "docker build -t untaingled .",
-    "start:image": "docker run -p 3000:3000 -v untaingled-data:/data untaingled"
+    "start:image": "docker run -p 3000:3000 -e DATABASE_URL=<url> untaingled"
   },
   "dependencies": {
     "hono": "^4.12.19",
