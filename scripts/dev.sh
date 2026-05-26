@@ -1,7 +1,6 @@
 #!/bin/sh
 set -e
 
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/untaingled"
 CONTAINER="pg-dev"
 
 if ! docker inspect "$CONTAINER" > /dev/null 2>&1; then
@@ -19,8 +18,4 @@ if ! docker inspect "$CONTAINER" > /dev/null 2>&1; then
   done
 fi
 
-BASIC_AUTH_USER="${BASIC_AUTH_USER:-test}"
-BASIC_AUTH_PASSWORD="${BASIC_AUTH_PASSWORD:-test}"
-
-export DATABASE_URL BASIC_AUTH_USER BASIC_AUTH_PASSWORD
 bun src/index.ts

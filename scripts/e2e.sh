@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/untaingled"
-BASIC_AUTH_USER="test"
-BASIC_AUTH_PASSWORD="test"
 CONTAINER="pg-e2e"
 
 docker rm -f "$CONTAINER" 2>/dev/null || true
@@ -20,7 +17,11 @@ until docker inspect "$CONTAINER" --format '{{.State.Health.Status}}' | grep -q 
   sleep 1
 done
 
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/untaingled"
+BASIC_AUTH_USER="test"
+BASIC_AUTH_PASSWORD="test"
 export DATABASE_URL BASIC_AUTH_USER BASIC_AUTH_PASSWORD
+
 playwright test "$@" || true
 
 docker stop "$CONTAINER"

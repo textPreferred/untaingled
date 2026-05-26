@@ -13,6 +13,7 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test:e2e": "sh scripts/e2e.sh",
+    "test:e2e:ci": "playwright test",
     "build:client": "vite build",
     "build:image": "docker build -t untaingled .",
     "start:image": "docker run -p 3000:3000 -e DATABASE_URL=<url> untaingled",

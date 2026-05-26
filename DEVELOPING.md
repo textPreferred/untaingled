@@ -4,6 +4,7 @@
 
 ```bash
 bun install
+cp .env.example .env  # then edit .env with your credentials
 ```
 
 ## Scripts
@@ -16,6 +17,7 @@ bun install
 | `bun test`          | Run unit tests                                                     |
 | `bun test:coverage` | Run unit tests with LCOV coverage report                           |
 | `bun test:e2e`      | Run Playwright E2E tests (starts and stops Postgres automatically) |
+| `bun test:e2e:ci`   | Run Playwright E2E tests without managing Postgres (used in CI)    |
 | `bun build:image`   | Build Docker image                                                 |
 | `bun start:image`   | Run Docker image on port 3000                                      |
 | `bun db:start`      | Start local Postgres container (for `bun dev`)                     |
@@ -25,11 +27,15 @@ bun install
 | `bun format`        | Format and auto-fix with oxfmt                                     |
 | `bun format:check`  | Format check only (no fixes)                                       |
 
+## Environment
+
+Copy `.env.example` to `.env` and fill in your credentials. Bun loads `.env` automatically.
+
 ## Database
 
-Both `bun dev` and `bun test:e2e` manage their own Postgres containers automatically — no setup needed.
+`bun dev` starts a local Postgres container automatically if one isn't already running. Use `bun db:stop` to tear it down.
 
-Use `bun db:start` / `bun db:stop` only if you need a persistent container (e.g. to inspect data between dev restarts).
+`bun test:e2e` manages its own container — no setup needed.
 
 Migrations run automatically on server start via `db.migrate.latest()`.
 
