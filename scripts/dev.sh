@@ -12,7 +12,7 @@ if ! docker inspect "$CONTAINER" > /dev/null 2>&1; then
     --health-cmd pg_isready \
     --health-interval 2s \
     --health-retries 10 \
-    postgres:17
+    docker.io/library/postgres:17
 
   until docker inspect "$CONTAINER" --format '{{.State.Health.Status}}' | grep -q healthy; do
     sleep 1
