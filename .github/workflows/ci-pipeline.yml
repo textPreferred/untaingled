@@ -46,7 +46,7 @@ jobs:
         run: bun format:check
 
   build:
-    name: Build
+    name: Build JS
     needs: install
     runs-on: ubuntu-latest
 
