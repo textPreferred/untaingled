@@ -6,11 +6,18 @@ import knex from "knex";
 import knexConfig from "./knexfile";
 import { createSession } from "./sessions";
 import { generateSalt, deriveKey, generateDbKey, encryptDbKey, decryptDbKey } from "./crypto";
+import { basicAuth } from "./basicAuth";
 
 const db = knex(knexConfig);
 await db.migrate.latest();
 
 const app = new Hono();
+
+const basicAuthUser = process.env["BASIC_AUTH_USER"];
+const basicAuthPassword = process.env["BASIC_AUTH_PASSWORD"];
+if (basicAuthUser && basicAuthPassword) {
+  app.use("/*", basicAuth(basicAuthUser, basicAuthPassword));
+}
 
 /**
  * Starts a new user session by creating a session ID and setting it as a cookie.

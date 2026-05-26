@@ -5,9 +5,11 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: "http://localhost:3000",
+    httpCredentials: { username: "test", password: "test" },
   },
   webServer: {
-    command: "bunx knex --knexfile src/knexfile.ts migrate:rollback --all && bun dev",
+    command:
+      "bun -e \"import knex from 'knex'; import config from './src/knexfile'; const db = knex(config); await db.migrate.rollback({}, true); await db.destroy()\" && bun dev",
     port: 3000,
     reuseExistingServer: false,
   },
