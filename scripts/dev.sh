@@ -3,7 +3,8 @@ set -e
 
 CONTAINER="pg-dev"
 
-if ! docker inspect "$CONTAINER" > /dev/null 2>&1; then
+if ! docker inspect "$CONTAINER" --format '{{.State.Running}}' 2>/dev/null | grep -q true; then
+  docker rm -f "$CONTAINER" 2>/dev/null || true
   docker run -d --name "$CONTAINER" \
     -e POSTGRES_PASSWORD=postgres \
     -e POSTGRES_DB=untaingled \
@@ -17,5 +18,10 @@ if ! docker inspect "$CONTAINER" > /dev/null 2>&1; then
     sleep 1
   done
 fi
+
+set -a
+# shellcheck disable=SC1091
+[ -f .env ] && . ./.env
+set +a
 
 bun src/index.ts
