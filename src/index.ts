@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
-import { setCookie } from "hono/cookie";
+import { setCookie, getCookie, deleteCookie } from "hono/cookie";
 import type { Context } from "hono";
 import knex from "knex";
 import knexConfig from "./knexfile";
-import { createSession } from "./sessions";
+import { createSession, deleteSession } from "./sessions";
 import { generateSalt, deriveKey, generateDbKey, encryptDbKey, decryptDbKey } from "./crypto";
 import { basicAuth } from "./basicAuth";
 
@@ -99,6 +99,13 @@ app.post("/api/login", async (c) => {
 
   const dbKey = decryptDbKey(user.encrypted_db_key, deriveKey(password, user.key_salt));
   return loginAndRedirect(c, user.id, dbKey);
+});
+
+app.post("/api/logout", (c) => {
+  const sessionId = getCookie(c, "session");
+  if (sessionId) deleteSession(sessionId);
+  deleteCookie(c, "session", { path: "/" });
+  return c.body(null, 204);
 });
 
 app.get("/api/events", async (c) => {

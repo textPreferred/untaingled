@@ -17,6 +17,7 @@ const V_GAP = 60;
 
 const view = ref<View>("auth");
 const appTab = ref<AppTab>("list");
+const accountOpen = ref(false);
 const username = ref("");
 const password = ref("");
 const error = ref("");
@@ -137,6 +138,11 @@ onMounted(() => {
   }
 });
 
+async function logout() {
+  await fetch("/api/logout", { method: "POST" });
+  globalThis.location.href = "/";
+}
+
 async function submit(action: "register" | "login") {
   error.value = "";
   const res = await fetch(`/api/${action}`, {
@@ -155,6 +161,15 @@ async function submit(action: "register" | "login") {
 </script>
 
 <template>
+  <header v-if="view === 'app'" class="app-header">
+    <span class="app-header-title">Untaingled</span>
+    <div class="account-menu">
+      <button class="btn-secondary" @click="accountOpen = !accountOpen">Account</button>
+      <div v-if="accountOpen" class="account-dropdown">
+        <button class="btn-secondary" @click="logout">Log out</button>
+      </div>
+    </div>
+  </header>
   <main v-if="view === 'auth'">
     <div class="card">
       <h1>Untaingled</h1>
@@ -396,6 +411,45 @@ button {
 
 .btn-secondary:hover {
   background: #f5f5f5;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-header-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.account-menu {
+  position: relative;
+}
+
+.account-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 0.25rem;
+  min-width: 120px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.account-dropdown button {
+  width: 100%;
+  text-align: left;
 }
 
 .app-view {
