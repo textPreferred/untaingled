@@ -10,6 +10,20 @@ test("user can register and land on the app", async ({ page }) => {
   await expect(page).toHaveURL("/app");
 });
 
+test("logged-in user can log out and is redirected to auth", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByLabel("Username").fill("dave");
+  await page.getByLabel("Password").fill("correct-horse-battery-staple");
+  await page.getByRole("button", { name: "Register" }).click();
+  await expect(page).toHaveURL("/app");
+
+  await page.getByRole("button", { name: "Account" }).click();
+  await page.getByRole("button", { name: "Log out" }).click();
+
+  await expect(page).toHaveURL("/");
+});
+
 test("registering with a taken username shows an error", async ({ page }) => {
   await page.goto("/");
 
