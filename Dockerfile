@@ -2,7 +2,7 @@
 # Image digests are pinned and kept current by Renovate.
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM cgr.dev/chainguard/node@sha256:fd3378546d879fd5ededd16cc1a2ff264a73ddcce2c60b8255c2d9515501fc24 AS builder
+FROM cgr.dev/chainguard/node@sha256:2887b8175fe6b1f242c4e7ee9d0ea8280b4dfba0d7171dfddf987f305ef0dc09 AS builder
 
 USER root
 ADD --checksum=sha256:9ba98d2134550d6690875b23a4f5c48e74b7cb267e8cc1b8f52605921c6c11ef \
@@ -23,13 +23,14 @@ COPY index.html tsconfig.json tsconfig.client.json tsconfig.migrations.json vite
 RUN bun run build
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM cgr.dev/chainguard/node@sha256:3e212e37f83e078397dd8431964a4d703b5ecba9ed508c2748ad24a11930a746 AS runtime
+FROM cgr.dev/chainguard/node@sha256:2887b8175fe6b1f242c4e7ee9d0ea8280b4dfba0d7171dfddf987f305ef0dc09 AS runtime
 
 COPY --from=builder /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
-COPY --from=builder /app/node_modules ./node_modules
+COPY bun.lock package.json ./
+RUN bun install --frozen-lockfile --ignore-scripts --production
 
 # Copy compiled server, Vite client assets, and migrations
 COPY --from=builder /app/dist ./dist
