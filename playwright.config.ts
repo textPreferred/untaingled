@@ -9,7 +9,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "bun -e \"import knex from 'knex'; import config from './src/knexfile'; const db = knex(config); await db.migrate.rollback({}, true); await db.destroy()\" && bun src/index.ts",
+      "bun -e \"import knex from 'knex'; import config from './src/knexfile'; const db = knex(config); await db.migrate.rollback({}, true); await db.destroy()\" && NODE_ENV=test bun src/index.ts",
     port: 3000,
     reuseExistingServer: false,
     timeout: 30000,

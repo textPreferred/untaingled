@@ -10,6 +10,7 @@ const config: Knex.Config = {
   migrations: {
     directory: new URL(compiled ? "./migrations" : "../migrations", import.meta.url).pathname,
     extension: compiled ? "js" : "ts",
+    loadExtensions: [".js", ".ts"],
   },
 };
 

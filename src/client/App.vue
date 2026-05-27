@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 
-type View = "auth" | "app";
+type View = "auth" | "passphrase" | "migrate" | "app";
 type AppTab = "list" | "graph";
 type EventRow = {
   id: number;
@@ -18,8 +18,8 @@ const V_GAP = 60;
 const view = ref<View>("auth");
 const appTab = ref<AppTab>("list");
 const accountOpen = ref(false);
-const username = ref("");
-const password = ref("");
+const passphrase = ref("");
+const legacyUsername = ref("");
 const error = ref("");
 
 const events = ref<EventRow[]>([]);
@@ -78,7 +78,6 @@ const graph = computed(() => {
   const byId = new Map(evs.map((e) => [e.id, e]));
   const nodes: GraphNode[] = [];
 
-  // Assign positions layer by layer using BFS from roots
   const roots = childrenOf.get(null) ?? [];
   let colCursor = 0;
 
@@ -132,31 +131,42 @@ const graph = computed(() => {
 });
 
 onMounted(() => {
-  if (globalThis.location.pathname === "/app") {
+  const path = globalThis.location.pathname;
+  if (path === "/app") {
     view.value = "app";
     void loadEvents();
+  } else if (path === "/auth/passphrase") {
+    // Check if this is a migration (server sets a flag via query param)
+    const params = new URLSearchParams(globalThis.location.search);
+    view.value = params.get("migrate") === "1" ? "migrate" : "passphrase";
   }
 });
+
+async function loginWithAuth0() {
+  globalThis.location.href = "/auth/login";
+}
+
+async function submitPassphrase(isMigration: boolean) {
+  error.value = "";
+  const body = isMigration
+    ? { passphrase: passphrase.value, username: legacyUsername.value }
+    : { passphrase: passphrase.value };
+  const res = await fetch("/api/auth/passphrase", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (res.ok) {
+    globalThis.location.href = "/app";
+  } else {
+    const data = (await res.json()) as { error: string };
+    error.value = isMigration ? `Wrong password: ${data.error}` : data.error;
+  }
+}
 
 async function logout() {
   await fetch("/api/logout", { method: "POST" });
   globalThis.location.href = "/";
-}
-
-async function submit(action: "register" | "login") {
-  error.value = "";
-  const res = await fetch(`/api/${action}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: username.value, password: password.value }),
-    redirect: "manual",
-  });
-  if (res.type === "opaqueredirect" || res.status === 0 || res.status === 302) {
-    globalThis.location.href = "/app";
-  } else {
-    const data = (await res.json()) as { error: string };
-    error.value = data.error;
-  }
 }
 </script>
 
@@ -170,24 +180,69 @@ async function submit(action: "register" | "login") {
       </div>
     </div>
   </header>
+
   <main v-if="view === 'auth'">
     <div class="card">
       <h1>Untaingled</h1>
-      <div class="field">
-        <label for="username">Username</label>
-        <input id="username" v-model="username" type="text" autocomplete="username" />
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-        <input id="password" v-model="password" type="password" autocomplete="current-password" />
-      </div>
-      <p v-if="error" class="error">{{ error }}</p>
-      <div class="actions">
-        <button class="btn-secondary" @click="submit('register')">Register</button>
-        <button class="btn-primary" @click="submit('login')">Log in</button>
+      <p class="intro">Sign in or create an account to continue.</p>
+      <div class="actions actions-center">
+        <button class="btn-primary" @click="loginWithAuth0">Continue with Auth0</button>
       </div>
     </div>
   </main>
+
+  <main v-else-if="view === 'passphrase'">
+    <div class="card">
+      <h1>Encryption passphrase</h1>
+      <p class="intro">
+        Enter your encryption passphrase to unlock your data. This passphrase is never sent to the
+        server — losing it means losing access to your data permanently.
+      </p>
+      <div class="field">
+        <label for="passphrase">Passphrase</label>
+        <input
+          id="passphrase"
+          v-model="passphrase"
+          type="password"
+          autocomplete="current-password"
+          @keydown.enter="submitPassphrase(false)"
+        />
+      </div>
+      <p v-if="error" class="error">{{ error }}</p>
+      <div class="actions">
+        <button class="btn-primary" @click="submitPassphrase(false)">Unlock</button>
+      </div>
+    </div>
+  </main>
+
+  <main v-else-if="view === 'migrate'">
+    <div class="card">
+      <h1>Migrate your account</h1>
+      <p class="intro">
+        Your account was created before Auth0. Enter your <strong>old username and password</strong>
+        to migrate your encrypted data to the new login system.
+      </p>
+      <div class="field">
+        <label for="legacy-username">Old username</label>
+        <input id="legacy-username" v-model="legacyUsername" type="text" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="passphrase">Old password</label>
+        <input
+          id="passphrase"
+          v-model="passphrase"
+          type="password"
+          autocomplete="current-password"
+          @keydown.enter="submitPassphrase(true)"
+        />
+      </div>
+      <p v-if="error" class="error">{{ error }}</p>
+      <div class="actions">
+        <button class="btn-primary" @click="submitPassphrase(true)">Migrate</button>
+      </div>
+    </div>
+  </main>
+
   <main v-else class="app-view">
     <div class="card">
       <h1>Events</h1>
@@ -339,6 +394,12 @@ h1 {
   letter-spacing: -0.01em;
 }
 
+.intro {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -378,6 +439,10 @@ input:focus {
   gap: 0.5rem;
   justify-content: flex-end;
   margin-top: 0.25rem;
+}
+
+.actions-center {
+  justify-content: center;
 }
 
 button {

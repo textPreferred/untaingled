@@ -1,22 +1,23 @@
 import { test, expect } from "@playwright/test";
 
-test("user can register and land on the app", async ({ page }) => {
-  await page.goto("/");
+async function testLogin(
+  request: import("@playwright/test").APIRequestContext,
+  username: string,
+  passphrase = "correct-horse-battery-staple",
+) {
+  await request.post("/api/test/login", { data: { username, passphrase } });
+}
 
-  await page.getByLabel("Username").fill("alice");
-  await page.getByLabel("Password").fill("correct-horse-battery-staple");
-  await page.getByRole("button", { name: "Register" }).click();
-
+test("user can register (via test login) and land on the app", async ({ page, request }) => {
+  await testLogin(request, "alice");
+  await page.goto("/app");
   await expect(page).toHaveURL("/app");
+  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
 });
 
-test("logged-in user can log out and is redirected to auth", async ({ page }) => {
-  await page.goto("/");
-
-  await page.getByLabel("Username").fill("dave");
-  await page.getByLabel("Password").fill("correct-horse-battery-staple");
-  await page.getByRole("button", { name: "Register" }).click();
-  await expect(page).toHaveURL("/app");
+test("logged-in user can log out and is redirected to auth", async ({ page, request }) => {
+  await testLogin(request, "dave");
+  await page.goto("/app");
 
   await page.getByRole("button", { name: "Account" }).click();
   await page.getByRole("button", { name: "Log out" }).click();
@@ -24,35 +25,27 @@ test("logged-in user can log out and is redirected to auth", async ({ page }) =>
   await expect(page).toHaveURL("/");
 });
 
-test("registering with a taken username shows an error", async ({ page }) => {
-  await page.goto("/");
+test("user with a different passphrase cannot decrypt another user's data", async ({ request }) => {
+  await testLogin(request, "carol", "correct-horse-battery-staple");
 
-  await page.getByLabel("Username").fill("carol");
-  await page.getByLabel("Password").fill("correct-horse-battery-staple");
-  await page.getByRole("button", { name: "Register" }).click();
-  await expect(page).toHaveURL("/app");
-
-  await page.goto("/");
-  await page.getByLabel("Username").fill("carol");
-  await page.getByLabel("Password").fill("another-password");
-  await page.getByRole("button", { name: "Register" }).click();
-
-  await expect(page.locator(".error")).toContainText("Username taken");
-  await expect(page).not.toHaveURL("/app");
+  const res = await request.post("/api/test/login", {
+    data: { username: "carol", passphrase: "wrong-passphrase" },
+  });
+  expect(res.status()).toBe(401);
 });
 
-test("registered user can log in and land on the app", async ({ page }) => {
-  await page.goto("/");
-
-  await page.getByLabel("Username").fill("bob");
-  await page.getByLabel("Password").fill("correct-horse-battery-staple");
-  await page.getByRole("button", { name: "Register" }).click();
+test("registered user can log in again with the same passphrase", async ({ page, request }) => {
+  await testLogin(request, "bob");
+  await page.goto("/app");
   await expect(page).toHaveURL("/app");
 
-  await page.goto("/");
-  await page.getByLabel("Username").fill("bob");
-  await page.getByLabel("Password").fill("correct-horse-battery-staple");
-  await page.getByRole("button", { name: "Log in" }).click();
+  // Log out
+  await page.getByRole("button", { name: "Account" }).click();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL("/");
 
+  // Log in again
+  await testLogin(request, "bob");
+  await page.goto("/app");
   await expect(page).toHaveURL("/app");
 });

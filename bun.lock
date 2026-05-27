@@ -7,6 +7,7 @@
       "dependencies": {
         "hono": "^4.12.19",
         "knex": "^3.2.10",
+        "openid-client": "^6.8.4",
         "pg": "^8.16.0",
         "vue": "^3.5.34",
       },
@@ -220,6 +221,8 @@
 
     "is-core-module": ["is-core-module@2.16.2", "", { "dependencies": { "hasown": "^2.0.3" } }, "sha512-evOr8xfXKxE6qSR0hSXL2r3sd7ALj8+7jQEUvPYcm5sgZFdJ+AYzT6yNmJenvIYQBgIGwfwz08sL8zoL7yq2BA=="],
 
+    "jose": ["jose@6.2.3", "", {}, "sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw=="],
+
     "knex": ["knex@3.2.10", "", { "dependencies": { "colorette": "2.0.19", "commander": "^10.0.0", "debug": "4.3.4", "escalade": "^3.1.1", "esm": "^3.2.25", "get-package-type": "^0.1.0", "getopts": "2.3.0", "interpret": "^2.2.0", "lodash": "^4.18.1", "pg-connection-string": "2.6.2", "rechoir": "^0.8.0", "resolve-from": "^5.0.0", "tarn": "^3.0.2", "tildify": "2.0.0" }, "peerDependencies": { "pg-query-stream": "^4.14.0" }, "optionalPeers": ["pg-query-stream"], "bin": { "knex": "bin/cli.js" } }, "sha512-oypTHfrc9i72iyxaUQBKHOxhcr0xM65MPf6FpN02nimsftXwzXprIkLjfXdubvhbu4PMWLp023q8o8CYvHSuZw=="],
 
     "lefthook": ["lefthook@2.1.8", "", { "optionalDependencies": { "lefthook-darwin-arm64": "2.1.8", "lefthook-darwin-x64": "2.1.8", "lefthook-freebsd-arm64": "2.1.8", "lefthook-freebsd-x64": "2.1.8", "lefthook-linux-arm64": "2.1.8", "lefthook-linux-x64": "2.1.8", "lefthook-openbsd-arm64": "2.1.8", "lefthook-openbsd-x64": "2.1.8", "lefthook-windows-arm64": "2.1.8", "lefthook-windows-x64": "2.1.8" }, "bin": { "lefthook": "bin/index.js" } }, "sha512-tJIoVpFF52PuU8YPJI9bRprGwzI6FR2GNeBbpMnXdRjjfJHyOR4VRLXilzoQ6lbhKVHfTohXhrQgLpU41bKITg=="],
@@ -275,6 +278,10 @@
     "ms": ["ms@2.1.2", "", {}, "sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w=="],
 
     "nanoid": ["nanoid@3.3.12", "", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ=="],
+
+    "oauth4webapi": ["oauth4webapi@3.8.6", "", {}, "sha512-iwemM91xz8nryHti2yTmg5fhyEMVOkOXwHNqbvcATjyajb5oQxCQzrNOA6uElRHuMhQQTKUyFKV9y/CNyg25BQ=="],
+
+    "openid-client": ["openid-client@6.8.4", "", { "dependencies": { "jose": "^6.2.2", "oauth4webapi": "^3.8.5" } }, "sha512-QSw0BA08piujetEwfZsHoTrDpMEha7GDZDicQqVwX4u0ChCjefvjDB++TZ8BTg76UpwhzIQgdvvfgfl3HpCSAw=="],
 
     "oxfmt": ["oxfmt@0.50.0", "", { "dependencies": { "tinypool": "2.1.0" }, "optionalDependencies": { "@oxfmt/binding-android-arm-eabi": "0.50.0", "@oxfmt/binding-android-arm64": "0.50.0", "@oxfmt/binding-darwin-arm64": "0.50.0", "@oxfmt/binding-darwin-x64": "0.50.0", "@oxfmt/binding-freebsd-x64": "0.50.0", "@oxfmt/binding-linux-arm-gnueabihf": "0.50.0", "@oxfmt/binding-linux-arm-musleabihf": "0.50.0", "@oxfmt/binding-linux-arm64-gnu": "0.50.0", "@oxfmt/binding-linux-arm64-musl": "0.50.0", "@oxfmt/binding-linux-ppc64-gnu": "0.50.0", "@oxfmt/binding-linux-riscv64-gnu": "0.50.0", "@oxfmt/binding-linux-riscv64-musl": "0.50.0", "@oxfmt/binding-linux-s390x-gnu": "0.50.0", "@oxfmt/binding-linux-x64-gnu": "0.50.0", "@oxfmt/binding-linux-x64-musl": "0.50.0", "@oxfmt/binding-openharmony-arm64": "0.50.0", "@oxfmt/binding-win32-arm64-msvc": "0.50.0", "@oxfmt/binding-win32-ia32-msvc": "0.50.0", "@oxfmt/binding-win32-x64-msvc": "0.50.0" }, "peerDependencies": { "svelte": "^5.0.0" }, "optionalPeers": ["svelte"], "bin": { "oxfmt": "bin/oxfmt" } }, "sha512-owwjTnhfM5aCOJhYeqDvk7iM504OeYFZpdRU7cxx7xtZMo4uVpjlryTUon+Cf76CugsvnqA32e6rC73pr1hXaw=="],
 
