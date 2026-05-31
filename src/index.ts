@@ -104,7 +104,12 @@ if (IS_TEST) {
       return c.json({ ok: true });
     }
 
-    const dbKey = decryptDbKey(user.encrypted_db_key, deriveKey(passphrase, user.key_salt));
+    let dbKey: Buffer;
+    try {
+      dbKey = decryptDbKey(user.encrypted_db_key, deriveKey(passphrase, user.key_salt));
+    } catch {
+      return c.json({ error: "Wrong passphrase" }, 401);
+    }
     const sessionId = createSession(user.id, dbKey);
     setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
     return c.json({ ok: true });

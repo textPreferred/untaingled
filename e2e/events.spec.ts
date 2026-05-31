@@ -1,12 +1,11 @@
 import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
-type Page = import("@playwright/test").Page;
-
-async function registerAndGoToApp(page: Page, username: string) {
-  await page.goto("/");
-  await page.getByLabel("Username").fill(username);
-  await page.getByLabel("Password").fill("correct-horse-battery-staple");
-  await page.getByRole("button", { name: "Register" }).click();
+async function loginAndGoToApp(page: Page, username: string) {
+  await page.request.post("/api/test/login", {
+    data: { username, passphrase: "correct-horse-battery-staple" },
+  });
+  await page.goto("/app");
   await expect(page).toHaveURL("/app");
 }
 
@@ -26,13 +25,13 @@ async function addEvent(
 }
 
 test("user can create an event with title only", async ({ page }) => {
-  await registerAndGoToApp(page, "user-event-title");
+  await loginAndGoToApp(page, "user-event-title");
 
   await addEvent(page, "My first event");
 });
 
 test("user can create an event with a description", async ({ page }) => {
-  await registerAndGoToApp(page, "user-event-desc");
+  await loginAndGoToApp(page, "user-event-desc");
 
   await addEvent(page, "Event with description", { description: "Some details here" });
 
@@ -40,7 +39,7 @@ test("user can create an event with a description", async ({ page }) => {
 });
 
 test("user can create an event rooted in another", async ({ page }) => {
-  await registerAndGoToApp(page, "user-event-root");
+  await loginAndGoToApp(page, "user-event-root");
 
   await addEvent(page, "Root event");
   await addEvent(page, "Child event", { rootedIn: "Root event" });
@@ -48,7 +47,7 @@ test("user can create an event rooted in another", async ({ page }) => {
 });
 
 test("user can delete an event", async ({ page }) => {
-  await registerAndGoToApp(page, "user-event-delete");
+  await loginAndGoToApp(page, "user-event-delete");
 
   await addEvent(page, "Event to delete");
 
@@ -62,7 +61,7 @@ test("user can delete an event", async ({ page }) => {
 });
 
 test("graph view shows event nodes", async ({ page }) => {
-  await registerAndGoToApp(page, "user-graph-nodes");
+  await loginAndGoToApp(page, "user-graph-nodes");
 
   await addEvent(page, "Alpha");
   await addEvent(page, "Beta");
@@ -76,7 +75,7 @@ test("graph view shows event nodes", async ({ page }) => {
 });
 
 test("graph view shows edges between rooted events", async ({ page }) => {
-  await registerAndGoToApp(page, "user-graph-edges");
+  await loginAndGoToApp(page, "user-graph-edges");
 
   await addEvent(page, "Parent");
   await addEvent(page, "Child", { rootedIn: "Parent" });
@@ -93,7 +92,7 @@ test("graph view shows edges between rooted events", async ({ page }) => {
 });
 
 test("deleting a root event clears the root reference on child events", async ({ page }) => {
-  await registerAndGoToApp(page, "user-event-cascade");
+  await loginAndGoToApp(page, "user-event-cascade");
 
   await addEvent(page, "Cascade root");
   await addEvent(page, "Cascade child", { rootedIn: "Cascade root" });
