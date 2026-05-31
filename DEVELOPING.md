@@ -48,6 +48,19 @@ Migrations run automatically on server start via `db.migrate.latest()`.
 
 Internal addon connections on Northflank do not need SSL. If connecting from outside, append `?sslmode=require` to the URL.
 
+## Third-party services
+
+| Service                              | Environments | Purpose                                         |
+| ------------------------------------ | ------------ | ----------------------------------------------- |
+| **Auth0**                            | Dev + Prod   | OIDC identity provider (authentication)         |
+| **PostgreSQL 17**                    | Dev + Prod   | Primary data store (via Knex.js)                |
+| **Northflank**                       | Prod         | PaaS hosting + managed PostgreSQL addon         |
+| **GitHub Container Registry (GHCR)** | CI + Prod    | Docker image hosting                            |
+| **GitHub Actions**                   | CI           | Lint, test, build, and deploy pipeline          |
+| **Trivy**                            | CI           | Container and filesystem vulnerability scanning |
+| **Sigstore/Cosign**                  | CI           | Keyless container image signing                 |
+| **Playwright**                       | Dev + CI     | End-to-end testing                              |
+
 ## Git hooks
 
 [Lefthook](https://lefthook.dev) runs on `pre-commit`: auto-fixes lint and formatting issues and stages the changes.
