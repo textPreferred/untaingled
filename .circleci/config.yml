@@ -1,0 +1,227 @@
+version: 2.1
+
+executors:
+  bun:
+    docker:
+      - image: oven/bun:1
+  bun_with_postgres:
+    docker:
+      - image: oven/bun:1
+      - image: cimg/postgres:17.0
+        environment:
+          POSTGRES_DB: untaingled_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+
+jobs:
+  install:
+    executor: bun
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - bun-deps-v1-{{ checksum "bun.lockb" }}
+      - run:
+          name: Install dependencies
+          command: bun install --frozen-lockfile --ignore-scripts
+      - save_cache:
+          key: bun-deps-v1-{{ checksum "bun.lockb" }}
+          paths:
+            - node_modules
+      - persist_to_workspace:
+          root: .
+          paths:
+            - node_modules
+
+  lint:
+    executor: bun
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Lint (oxc)
+          command: bun lint:check
+      - run:
+          name: Format check (oxc)
+          command: bun format:check
+
+  build:
+    executor: bun
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Build
+          command: bun run build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+      - store_artifacts:
+          path: dist/
+
+  test:
+    executor: bun
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Test
+          command: bun run test
+
+  test-e2e:
+    executor: bun_with_postgres
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/untaingled_test
+      BASIC_AUTH_USER: test
+      BASIC_AUTH_PASSWORD: test
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install dependencies (with scripts for Playwright)
+          command: bun install --frozen-lockfile
+      - run:
+          name: Install Playwright browsers
+          command: bunx playwright@1.60.0 install --with-deps chromium
+      - run:
+          name: Wait for Postgres
+          command: |
+            for i in $(seq 1 30); do
+              pg_isready -h localhost -p 5432 -U postgres && break
+              echo "Waiting for Postgres... ($i)"
+              sleep 2
+            done
+      - run:
+          name: Run E2E tests
+          command: bun test:e2e:ci
+      - store_artifacts:
+          path: playwright-report/
+          when: on_fail
+
+  security:
+    docker:
+      - image: aquasec/trivy:latest
+    steps:
+      - checkout
+      - run:
+          name: Scan repository with Trivy
+          command: |
+            trivy fs \
+              --severity CRITICAL,HIGH \
+              --exit-code 0 \
+              --format table \
+              .
+
+  docker-build:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Build image
+          command: docker build -t untaingled:$CIRCLE_SHA1 .
+      - run:
+          name: Scan image with Trivy
+          command: |
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              aquasec/trivy:latest image \
+              --severity CRITICAL,HIGH \
+              --exit-code 1 \
+              untaingled:$CIRCLE_SHA1
+
+  docker-publish:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Log in to GitHub Container Registry
+          command: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+      - run:
+          name: Build and push image
+          command: |
+            REPO=$(echo "$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]')
+            docker build \
+              -t ghcr.io/${REPO}:${CIRCLE_SHA1} \
+              -t ghcr.io/${REPO}:latest \
+              .
+            docker push ghcr.io/${REPO}:${CIRCLE_SHA1}
+            docker push ghcr.io/${REPO}:latest
+      - run:
+          name: Install cosign
+          command: |
+            curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
+              -o /usr/local/bin/cosign
+            chmod +x /usr/local/bin/cosign
+      - run:
+          name: Sign image (keyless via OIDC)
+          command: |
+            REPO=$(echo "$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]')
+            DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${REPO}:${CIRCLE_SHA1} | cut -d@ -f2)
+            cosign sign --yes ghcr.io/${REPO}@${DIGEST}
+
+workflows:
+  ci:
+    jobs:
+      - install:
+          filters:
+            branches:
+              only: main
+      - lint:
+          requires:
+            - install
+          filters:
+            branches:
+              only: main
+      - build:
+          requires:
+            - install
+          filters:
+            branches:
+              only: main
+      - test:
+          requires:
+            - install
+          filters:
+            branches:
+              only: main
+      - test-e2e:
+          requires:
+            - install
+            - build
+          filters:
+            branches:
+              only: main
+      - security:
+          requires:
+            - install
+          filters:
+            branches:
+              only: main
+      - docker-build:
+          requires:
+            - install
+          filters:
+            branches:
+              only: main
+      - docker-publish:
+          requires:
+            - lint
+            - build
+            - test
+            - test-e2e
+            - security
+            - docker-build
+          filters:
+            branches:
+              only: main
