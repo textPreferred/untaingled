@@ -6,6 +6,7 @@ async function testLogin(
   username: string,
   passphrase = "correct-horse-battery-staple",
 ) {
+  if (!page.url().startsWith("http")) await page.goto("/");
   return page.request.post("/api/test/login", { data: { username, passphrase } });
 }
 

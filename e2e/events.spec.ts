@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
 async function loginAndGoToApp(page: Page, username: string) {
+  await page.goto("/");
   await page.request.post("/api/test/login", {
     data: { username, passphrase: "correct-horse-battery-staple" },
   });
