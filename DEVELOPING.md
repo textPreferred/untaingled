@@ -50,16 +50,17 @@ Internal addon connections on Northflank do not need SSL. If connecting from out
 
 ## Third-party services
 
-| Service                              | Environments | Purpose                                         |
-| ------------------------------------ | ------------ | ----------------------------------------------- |
-| **Auth0**                            | Dev + Prod   | OIDC identity provider (authentication)         |
-| **PostgreSQL 17**                    | Dev + Prod   | Primary data store (via Knex.js)                |
-| **Northflank**                       | Prod         | PaaS hosting + managed PostgreSQL addon         |
-| **GitHub Container Registry (GHCR)** | CI + Prod    | Docker image hosting                            |
-| **GitHub Actions**                   | CI           | Lint, test, build, and deploy pipeline          |
-| **Trivy**                            | CI           | Container and filesystem vulnerability scanning |
-| **Sigstore/Cosign**                  | CI           | Keyless container image signing                 |
-| **Playwright**                       | Dev + CI     | End-to-end testing                              |
+| Service                              | Environments | Purpose                                                         |
+| ------------------------------------ | ------------ | --------------------------------------------------------------- |
+| **Auth0**                            | Dev + Prod   | OIDC identity provider (authentication)                         |
+| **PostgreSQL 17**                    | Dev + Prod   | Primary data store (via Knex.js)                                |
+| **Northflank**                       | Prod         | PaaS hosting + managed PostgreSQL addon                         |
+| **GitHub Container Registry (GHCR)** | CI + Prod    | Docker image hosting                                            |
+| **GitHub Actions**                   | CI           | Lint, test, build, and deploy pipeline                          |
+| **Trivy**                            | CI           | Container and filesystem vulnerability scanning                 |
+| **Sigstore/Cosign**                  | CI           | Keyless container image signing                                 |
+| **Playwright**                       | Dev + CI     | End-to-end testing                                              |
+| **Honeycomb**                        | Prod (opt.)  | Distributed tracing via OpenTelemetry (set `HONEYCOMB_API_KEY`) |
 
 ## Git hooks
 

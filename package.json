@@ -21,6 +21,9 @@
     "db:stop": "docker stop pg-dev && docker rm pg-dev"
   },
   "dependencies": {
+    "@opentelemetry/auto-instrumentations-node": "^0.76.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.218.0",
+    "@opentelemetry/sdk-node": "^0.218.0",
     "hono": "^4.12.19",
     "knex": "^3.2.10",
     "openid-client": "^6.8.4",
