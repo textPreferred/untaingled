@@ -101,7 +101,7 @@ jobs:
           command: bun install --frozen-lockfile
       - run:
           name: Install Playwright browsers
-          command: bun x playwright@1.60.0 install --with-deps chromium
+          command: ./node_modules/.bin/playwright install --with-deps chromium
       - run:
           name: Wait for Postgres
           command: |
