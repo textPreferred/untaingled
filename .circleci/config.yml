@@ -1,12 +1,21 @@
 version: 2.1
 
+commands:
+  install_bun:
+    steps:
+      - run:
+          name: Install bun
+          command: |
+            curl -fsSL https://bun.sh/install | bash
+            echo 'export PATH="$HOME/.bun/bin:$PATH"' >> $BASH_ENV
+
 executors:
-  bun:
+  base:
     docker:
-      - image: oven/bun:1
-  bun_with_postgres:
+      - image: cimg/base:current
+  base_with_postgres:
     docker:
-      - image: oven/bun:1
+      - image: cimg/base:current
       - image: cimg/postgres:17.0
         environment:
           POSTGRES_DB: untaingled_test
@@ -15,9 +24,10 @@ executors:
 
 jobs:
   install:
-    executor: bun
+    executor: base
     steps:
       - checkout
+      - install_bun
       - restore_cache:
           keys:
             - bun-deps-v1-{{ checksum "bun.lockb" }}
@@ -34,9 +44,10 @@ jobs:
             - node_modules
 
   lint:
-    executor: bun
+    executor: base
     steps:
       - checkout
+      - install_bun
       - attach_workspace:
           at: .
       - run:
@@ -47,9 +58,10 @@ jobs:
           command: bun format:check
 
   build:
-    executor: bun
+    executor: base
     steps:
       - checkout
+      - install_bun
       - attach_workspace:
           at: .
       - run:
@@ -63,9 +75,10 @@ jobs:
           path: dist/
 
   test:
-    executor: bun
+    executor: base
     steps:
       - checkout
+      - install_bun
       - attach_workspace:
           at: .
       - run:
@@ -73,13 +86,14 @@ jobs:
           command: bun run test
 
   test-e2e:
-    executor: bun_with_postgres
+    executor: base_with_postgres
     environment:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/untaingled_test
       BASIC_AUTH_USER: test
       BASIC_AUTH_PASSWORD: test
     steps:
       - checkout
+      - install_bun
       - attach_workspace:
           at: .
       - run:
