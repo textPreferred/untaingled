@@ -1,15 +1,11 @@
 import { test, expect } from "@playwright/test";
-import type { Page, APIRequestContext } from "@playwright/test";
 
-async function loginAndGoToApp(page: Page, request: APIRequestContext, username: string) {
-  const res = await request.post("/api/test/login", {
+type Page = import("@playwright/test").Page;
+
+async function registerAndGoToApp(page: Page, username: string) {
+  await page.request.post("/api/test/login", {
     data: { username, passphrase: "correct-horse-battery-staple" },
   });
-  const cookie = res.headers()["set-cookie"];
-  if (cookie) {
-    const [name, value] = cookie.split(";")[0]!.split("=") as [string, string];
-    await page.context().addCookies([{ name, value, url: "http://localhost:3000" }]);
-  }
   await page.goto("/app");
   await expect(page).toHaveURL("/app");
 }
@@ -29,30 +25,30 @@ async function addEvent(
   await expect(eventList(page).getByText(title)).toBeVisible();
 }
 
-test("user can create an event with title only", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-event-title");
+test("user can create an event with title only", async ({ page }) => {
+  await registerAndGoToApp(page, "user-event-title");
 
   await addEvent(page, "My first event");
 });
 
-test("user can create an event with a description", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-event-desc");
+test("user can create an event with a description", async ({ page }) => {
+  await registerAndGoToApp(page, "user-event-desc");
 
   await addEvent(page, "Event with description", { description: "Some details here" });
 
   await expect(eventList(page).getByText("Some details here")).toBeVisible();
 });
 
-test("user can create an event rooted in another", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-event-root");
+test("user can create an event rooted in another", async ({ page }) => {
+  await registerAndGoToApp(page, "user-event-root");
 
   await addEvent(page, "Root event");
   await addEvent(page, "Child event", { rootedIn: "Root event" });
   await expect(eventList(page).getByText("Root event")).toHaveCount(2);
 });
 
-test("user can delete an event", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-event-delete");
+test("user can delete an event", async ({ page }) => {
+  await registerAndGoToApp(page, "user-event-delete");
 
   await addEvent(page, "Event to delete");
 
@@ -65,8 +61,8 @@ test("user can delete an event", async ({ page, request }) => {
   await expect(eventList(page).getByText("Event to delete")).not.toBeVisible();
 });
 
-test("graph view shows event nodes", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-graph-nodes");
+test("graph view shows event nodes", async ({ page }) => {
+  await registerAndGoToApp(page, "user-graph-nodes");
 
   await addEvent(page, "Alpha");
   await addEvent(page, "Beta");
@@ -79,8 +75,8 @@ test("graph view shows event nodes", async ({ page, request }) => {
   await expect(graph.getByText("Beta")).toBeVisible();
 });
 
-test("graph view shows edges between rooted events", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-graph-edges");
+test("graph view shows edges between rooted events", async ({ page }) => {
+  await registerAndGoToApp(page, "user-graph-edges");
 
   await addEvent(page, "Parent");
   await addEvent(page, "Child", { rootedIn: "Parent" });
@@ -96,11 +92,8 @@ test("graph view shows edges between rooted events", async ({ page, request }) =
   await expect(svg.locator("line.graph-edge")).not.toHaveCount(0);
 });
 
-test("deleting a root event clears the root reference on child events", async ({
-  page,
-  request,
-}) => {
-  await loginAndGoToApp(page, request, "user-event-cascade");
+test("deleting a root event clears the root reference on child events", async ({ page }) => {
+  await registerAndGoToApp(page, "user-event-cascade");
 
   await addEvent(page, "Cascade root");
   await addEvent(page, "Cascade child", { rootedIn: "Cascade root" });
