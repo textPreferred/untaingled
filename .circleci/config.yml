@@ -171,6 +171,13 @@ jobs:
               .
             docker push ghcr.io/${REPO}:${CIRCLE_SHA1}
             docker push ghcr.io/${REPO}:latest
+      - run:
+          name: Trigger Northflank redeploy
+          command: |
+            curl -sSf -X POST \
+              -H "Authorization: Bearer $NORTHFLANK_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              https://api.northflank.com/v1/projects/untaingled/services/entaingled-docker-deploy/redeploy
 
 workflows:
   ci:
