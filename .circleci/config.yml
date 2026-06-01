@@ -164,7 +164,7 @@ jobs:
       - run:
           name: Build and push image
           command: |
-            REPO=$(echo "$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]')
+            REPO=$(echo "$GHCR_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]')
             docker build \
               -t ghcr.io/${REPO}:${CIRCLE_SHA1} \
               -t ghcr.io/${REPO}:latest \
@@ -180,7 +180,7 @@ jobs:
       - run:
           name: Sign image (keyless via OIDC)
           command: |
-            REPO=$(echo "$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]')
+            REPO=$(echo "$GHCR_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]')
             DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${REPO}:${CIRCLE_SHA1} | cut -d@ -f2)
             cosign sign --yes ghcr.io/${REPO}@${DIGEST}
 
