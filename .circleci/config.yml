@@ -174,9 +174,11 @@ jobs:
       - run:
           name: Install cosign
           command: |
+            mkdir -p "$HOME/bin"
             curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
-              -o /usr/local/bin/cosign
-            chmod +x /usr/local/bin/cosign
+              -o "$HOME/bin/cosign"
+            chmod +x "$HOME/bin/cosign"
+            echo 'export PATH="$HOME/bin:$PATH"' >> "$BASH_ENV"
       - run:
           name: Sign image (keyless via OIDC)
           command: |
