@@ -37,4 +37,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 
-ENTRYPOINT ["bun", "--preload", "dist/instrumentation.js", "dist/index.js"]
+ENTRYPOINT ["bun", "--preload", "./dist/instrumentation.js", "./dist/index.js"]
