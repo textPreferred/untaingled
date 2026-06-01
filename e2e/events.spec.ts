@@ -2,14 +2,9 @@ import { test, expect } from "@playwright/test";
 import type { Page, APIRequestContext } from "@playwright/test";
 
 async function loginAndGoToApp(page: Page, request: APIRequestContext, username: string) {
-  const res = await request.post("/api/test/login", {
+  await request.post("http://localhost:3000/api/test/login", {
     data: { username, passphrase: "correct-horse-battery-staple" },
   });
-  const cookie = res.headers()["set-cookie"];
-  if (cookie) {
-    const [name, value] = cookie.split(";")[0]!.split("=") as [string, string];
-    await page.context().addCookies([{ name, value, url: "http://localhost:3000" }]);
-  }
   await page.goto("/app");
   await expect(page).toHaveURL("/app");
 }
