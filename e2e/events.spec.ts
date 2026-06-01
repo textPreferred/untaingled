@@ -1,10 +1,22 @@
 import { test, expect } from "@playwright/test";
-import type { Page, APIRequestContext } from "@playwright/test";
+import type { Page, APIRequestContext, BrowserContext } from "@playwright/test";
 
-async function loginAndGoToApp(page: Page, request: APIRequestContext, username: string) {
-  await request.post("http://localhost:3000/api/test/login", {
+const BASE_URL = "http://localhost:3000";
+
+async function loginAndGoToApp(
+  page: Page,
+  context: BrowserContext,
+  request: APIRequestContext,
+  username: string,
+) {
+  const res = await request.post(`${BASE_URL}/api/test/login`, {
     data: { username, passphrase: "correct-horse-battery-staple" },
   });
+  const cookie = res.headers()["set-cookie"];
+  if (cookie) {
+    const [name, value] = cookie.split(";")[0]!.split("=");
+    await context.addCookies([{ name, value, url: BASE_URL }]);
+  }
   await page.goto("/app");
   await expect(page).toHaveURL("/app");
 }
@@ -24,30 +36,30 @@ async function addEvent(
   await expect(eventList(page).getByText(title)).toBeVisible();
 }
 
-test("user can create an event with title only", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-event-title");
+test("user can create an event with title only", async ({ page, request, context }) => {
+  await loginAndGoToApp(page, context, request, "user-event-title");
 
   await addEvent(page, "My first event");
 });
 
-test("user can create an event with a description", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-event-desc");
+test("user can create an event with a description", async ({ page, request, context }) => {
+  await loginAndGoToApp(page, context, request, "user-event-desc");
 
   await addEvent(page, "Event with description", { description: "Some details here" });
 
   await expect(eventList(page).getByText("Some details here")).toBeVisible();
 });
 
-test("user can create an event rooted in another", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-event-root");
+test("user can create an event rooted in another", async ({ page, request, context }) => {
+  await loginAndGoToApp(page, context, request, "user-event-root");
 
   await addEvent(page, "Root event");
   await addEvent(page, "Child event", { rootedIn: "Root event" });
   await expect(eventList(page).getByText("Root event")).toHaveCount(2);
 });
 
-test("user can delete an event", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-event-delete");
+test("user can delete an event", async ({ page, request, context }) => {
+  await loginAndGoToApp(page, context, request, "user-event-delete");
 
   await addEvent(page, "Event to delete");
 
@@ -60,8 +72,8 @@ test("user can delete an event", async ({ page, request }) => {
   await expect(eventList(page).getByText("Event to delete")).not.toBeVisible();
 });
 
-test("graph view shows event nodes", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-graph-nodes");
+test("graph view shows event nodes", async ({ page, request, context }) => {
+  await loginAndGoToApp(page, context, request, "user-graph-nodes");
 
   await addEvent(page, "Alpha");
   await addEvent(page, "Beta");
@@ -74,8 +86,8 @@ test("graph view shows event nodes", async ({ page, request }) => {
   await expect(graph.getByText("Beta")).toBeVisible();
 });
 
-test("graph view shows edges between rooted events", async ({ page, request }) => {
-  await loginAndGoToApp(page, request, "user-graph-edges");
+test("graph view shows edges between rooted events", async ({ page, request, context }) => {
+  await loginAndGoToApp(page, context, request, "user-graph-edges");
 
   await addEvent(page, "Parent");
   await addEvent(page, "Child", { rootedIn: "Parent" });
@@ -94,8 +106,9 @@ test("graph view shows edges between rooted events", async ({ page, request }) =
 test("deleting a root event clears the root reference on child events", async ({
   page,
   request,
+  context,
 }) => {
-  await loginAndGoToApp(page, request, "user-event-cascade");
+  await loginAndGoToApp(page, context, request, "user-event-cascade");
 
   await addEvent(page, "Cascade root");
   await addEvent(page, "Cascade child", { rootedIn: "Cascade root" });
