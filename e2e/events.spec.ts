@@ -1,18 +1,18 @@
 import { test, expect } from "@playwright/test";
-import type { Page, APIRequestContext, BrowserContext } from "@playwright/test";
+import type { Page, BrowserContext } from "@playwright/test";
 
 const BASE_URL = "http://localhost:3000";
 
-async function loginAndGoToApp(
-  page: Page,
-  context: BrowserContext,
-  request: APIRequestContext,
-  username: string,
-) {
-  const res = await request.post(`${BASE_URL}/api/test/login`, {
-    data: { username, passphrase: "correct-horse-battery-staple" },
+async function loginAndGoToApp(page: Page, context: BrowserContext, username: string) {
+  const res = await fetch(`${BASE_URL}/api/test/login`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Basic ${btoa("test:test")}`,
+    },
+    body: JSON.stringify({ username, passphrase: "correct-horse-battery-staple" }),
   });
-  const cookie = res.headers()["set-cookie"];
+  const cookie = res.headers.get("set-cookie");
   if (cookie) {
     const [name, value] = cookie.split(";")[0]!.split("=");
     await context.addCookies([{ name, value, url: BASE_URL }]);
@@ -36,30 +36,30 @@ async function addEvent(
   await expect(eventList(page).getByText(title)).toBeVisible();
 }
 
-test("user can create an event with title only", async ({ page, request, context }) => {
-  await loginAndGoToApp(page, context, request, "user-event-title");
+test("user can create an event with title only", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-event-title");
 
   await addEvent(page, "My first event");
 });
 
-test("user can create an event with a description", async ({ page, request, context }) => {
-  await loginAndGoToApp(page, context, request, "user-event-desc");
+test("user can create an event with a description", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-event-desc");
 
   await addEvent(page, "Event with description", { description: "Some details here" });
 
   await expect(eventList(page).getByText("Some details here")).toBeVisible();
 });
 
-test("user can create an event rooted in another", async ({ page, request, context }) => {
-  await loginAndGoToApp(page, context, request, "user-event-root");
+test("user can create an event rooted in another", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-event-root");
 
   await addEvent(page, "Root event");
   await addEvent(page, "Child event", { rootedIn: "Root event" });
   await expect(eventList(page).getByText("Root event")).toHaveCount(2);
 });
 
-test("user can delete an event", async ({ page, request, context }) => {
-  await loginAndGoToApp(page, context, request, "user-event-delete");
+test("user can delete an event", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-event-delete");
 
   await addEvent(page, "Event to delete");
 
@@ -72,8 +72,8 @@ test("user can delete an event", async ({ page, request, context }) => {
   await expect(eventList(page).getByText("Event to delete")).not.toBeVisible();
 });
 
-test("graph view shows event nodes", async ({ page, request, context }) => {
-  await loginAndGoToApp(page, context, request, "user-graph-nodes");
+test("graph view shows event nodes", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-graph-nodes");
 
   await addEvent(page, "Alpha");
   await addEvent(page, "Beta");
@@ -86,8 +86,8 @@ test("graph view shows event nodes", async ({ page, request, context }) => {
   await expect(graph.getByText("Beta")).toBeVisible();
 });
 
-test("graph view shows edges between rooted events", async ({ page, request, context }) => {
-  await loginAndGoToApp(page, context, request, "user-graph-edges");
+test("graph view shows edges between rooted events", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-graph-edges");
 
   await addEvent(page, "Parent");
   await addEvent(page, "Child", { rootedIn: "Parent" });
@@ -105,10 +105,9 @@ test("graph view shows edges between rooted events", async ({ page, request, con
 
 test("deleting a root event clears the root reference on child events", async ({
   page,
-  request,
   context,
 }) => {
-  await loginAndGoToApp(page, context, request, "user-event-cascade");
+  await loginAndGoToApp(page, context, "user-event-cascade");
 
   await addEvent(page, "Cascade root");
   await addEvent(page, "Cascade child", { rootedIn: "Cascade root" });
