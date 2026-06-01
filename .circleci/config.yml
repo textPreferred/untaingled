@@ -171,20 +171,6 @@ jobs:
               .
             docker push ghcr.io/${REPO}:${CIRCLE_SHA1}
             docker push ghcr.io/${REPO}:latest
-      - run:
-          name: Install cosign
-          command: |
-            mkdir -p "$HOME/bin"
-            curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
-              -o "$HOME/bin/cosign"
-            chmod +x "$HOME/bin/cosign"
-            echo 'export PATH="$HOME/bin:$PATH"' >> "$BASH_ENV"
-      - run:
-          name: Sign image (keyless via OIDC)
-          command: |
-            REPO=$(echo "$GHCR_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]')
-            DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${REPO}:${CIRCLE_SHA1} | cut -d@ -f2)
-            cosign sign --yes ghcr.io/${REPO}@${DIGEST}
 
 workflows:
   ci:
