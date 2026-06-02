@@ -147,7 +147,8 @@ app.get("/auth/callback", async (c) => {
   if (!pending) return c.text("Invalid state", 400);
   pendingAuth.delete(state);
 
-  const callbackUrl = new URL(c.req.url);
+  const callbackUrl = new URL(AUTH0_CALLBACK_URL);
+  callbackUrl.search = new URL(c.req.url).search;
 
   const tokens = await oidc.authorizationCodeGrant(oidcConfig!, callbackUrl, {
     pkceCodeVerifier: pending.codeVerifier,
