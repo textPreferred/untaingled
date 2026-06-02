@@ -26,10 +26,23 @@ const events = ref<EventRow[]>([]);
 const newTitle = ref("");
 const newDescription = ref("");
 const newRootEventId = ref<number | null>(null);
+const editingId = ref<number | null>(null);
 
 async function loadEvents() {
   const res = await fetch("/api/events");
   events.value = (await res.json()) as EventRow[];
+}
+
+function resetForm() {
+  newTitle.value = "";
+  newDescription.value = "";
+  newRootEventId.value = null;
+  editingId.value = null;
+}
+
+async function submitForm() {
+  if (editingId.value === null) await createEvent();
+  else await saveEdit();
 }
 
 async function createEvent() {
@@ -43,14 +56,45 @@ async function createEvent() {
       root_event_id: newRootEventId.value,
     }),
   });
-  newTitle.value = "";
-  newDescription.value = "";
-  newRootEventId.value = null;
+  resetForm();
+  await loadEvents();
+}
+
+function startEdit(event: EventRow) {
+  editingId.value = event.id;
+  newTitle.value = event.title;
+  newDescription.value = event.description ?? "";
+  newRootEventId.value = event.root_event_id;
+}
+
+function startEditById(id: number) {
+  const event = events.value.find((e) => e.id === id);
+  if (event) startEdit(event);
+}
+
+function cancelEdit() {
+  resetForm();
+}
+
+async function saveEdit() {
+  if (editingId.value === null) return;
+  if (!newTitle.value.trim()) return;
+  await fetch(`/api/events/${editingId.value}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: newTitle.value,
+      description: newDescription.value || null,
+      root_event_id: newRootEventId.value,
+    }),
+  });
+  resetForm();
   await loadEvents();
 }
 
 async function deleteEvent(id: number) {
   await fetch(`/api/events/${id}`, { method: "DELETE" });
+  if (editingId.value === id) resetForm();
   await loadEvents();
 }
 
@@ -60,6 +104,8 @@ function rootTitle(event: EventRow): string | null {
 }
 
 const rootSelectId = computed(() => newRootEventId.value ?? "");
+
+const rootOptions = computed(() => events.value.filter((e) => e.id !== editingId.value));
 
 type GraphNode = { id: number; title: string; x: number; y: number };
 type GraphEdge = { x1: number; y1: number; x2: number; y2: number };
@@ -247,7 +293,7 @@ async function logout() {
     <div class="card">
       <h1>Events</h1>
 
-      <form class="event-form" @submit.prevent="createEvent">
+      <form class="event-form" @submit.prevent="submitForm">
         <div class="field">
           <label for="new-title">Title</label>
           <input id="new-title" v-model="newTitle" type="text" required />
@@ -272,11 +318,16 @@ async function logout() {
             "
           >
             <option value="">None</option>
-            <option v-for="e in events" :key="e.id" :value="e.id">{{ e.title }}</option>
+            <option v-for="e in rootOptions" :key="e.id" :value="e.id">{{ e.title }}</option>
           </select>
         </div>
         <div class="actions">
-          <button type="submit" class="btn-primary">Add event</button>
+          <button v-if="editingId !== null" type="button" class="btn-secondary" @click="cancelEdit">
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary">
+            {{ editingId === null ? "Add event" : "Save changes" }}
+          </button>
         </div>
       </form>
 
@@ -299,7 +350,10 @@ async function logout() {
         <li v-for="event in events" :key="event.id">
           <div class="event-header">
             <strong>{{ event.title }}</strong>
-            <button class="btn-secondary" @click="deleteEvent(event.id)">Delete</button>
+            <div class="event-actions">
+              <button class="btn-secondary" @click="startEdit(event)">Edit</button>
+              <button class="btn-secondary" @click="deleteEvent(event.id)">Delete</button>
+            </div>
           </div>
           <p v-if="event.description" class="event-description">{{ event.description }}</p>
           <p v-if="rootTitle(event)" class="event-root">Took place while: {{ rootTitle(event) }}</p>
@@ -328,6 +382,8 @@ async function logout() {
             v-for="node in graph.nodes"
             :key="node.id"
             :transform="`translate(${node.x},${node.y})`"
+            class="graph-node-group"
+            @click="startEditById(node.id)"
           >
             <rect :width="NODE_W" :height="NODE_H" rx="4" class="graph-node" />
             <text
@@ -573,6 +629,11 @@ select {
   align-items: center;
 }
 
+.event-actions {
+  display: flex;
+  gap: 0.375rem;
+}
+
 .event-description {
   margin: 0.375rem 0 0;
   font-size: 0.9rem;
@@ -614,6 +675,10 @@ select {
   fill: #f5f5f5;
   stroke: #d0d0d0;
   stroke-width: 1;
+}
+
+.graph-node-group {
+  cursor: pointer;
 }
 
 .graph-label {
