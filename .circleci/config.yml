@@ -16,7 +16,7 @@ executors:
   base_with_postgres:
     docker:
       - image: cimg/base:current
-      - image: cimg/postgres:17.0
+      - image: cimg/postgres:17.10
         environment:
           POSTGRES_DB: untaingled_test
           POSTGRES_USER: postgres
