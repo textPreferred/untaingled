@@ -182,9 +182,9 @@ test("user can edit an event by clicking its node in the graph", async ({ page, 
   const graph = page.getByRole("region", { name: "Event graph" });
   await graph.getByText("Graph original").click();
 
-  await expect(page.getByLabel("Title")).toHaveValue("Graph original");
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Graph original");
 
-  await page.getByLabel("Title").fill("Graph updated");
+  await page.getByLabel("Title", { exact: true }).fill("Graph updated");
   await page.getByRole("button", { name: "Save changes" }).click();
 
   await expect(graph.getByText("Graph updated")).toBeVisible();
@@ -221,12 +221,12 @@ test("user can delete an event from the edit form", async ({ page, context }) =>
     .getByRole("button", { name: "Edit" })
     .click();
 
-  await expect(page.getByLabel("Title")).toHaveValue("Edit and delete me");
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Edit and delete me");
 
   await page.getByRole("button", { name: "Delete event" }).click();
 
   await expect(eventList(page).getByText("Edit and delete me")).not.toBeVisible();
-  await expect(page.getByLabel("Title")).toHaveValue("");
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("");
   await expect(page.getByRole("button", { name: "Add event" })).toBeVisible();
 });
 

@@ -322,6 +322,14 @@ async function logout() {
           </select>
         </div>
         <div class="actions">
+          <button
+            v-if="editingId !== null"
+            type="button"
+            class="btn-secondary"
+            @click="deleteEvent(editingId)"
+          >
+            Delete event
+          </button>
           <button v-if="editingId !== null" type="button" class="btn-secondary" @click="cancelEdit">
             Cancel
           </button>
@@ -383,18 +391,36 @@ async function logout() {
             :key="node.id"
             :transform="`translate(${node.x},${node.y})`"
             class="graph-node-group"
-            @click="startEditById(node.id)"
           >
-            <rect :width="NODE_W" :height="NODE_H" rx="4" class="graph-node" />
-            <text
-              :x="NODE_W / 2"
-              :y="NODE_H / 2"
-              dominant-baseline="middle"
-              text-anchor="middle"
-              class="graph-label"
+            <g class="graph-node-clickable" @click="startEditById(node.id)">
+              <rect :width="NODE_W" :height="NODE_H" rx="4" class="graph-node" />
+              <text
+                :x="NODE_W / 2"
+                :y="NODE_H / 2"
+                dominant-baseline="middle"
+                text-anchor="middle"
+                class="graph-label"
+              >
+                {{ node.title }}
+              </text>
+            </g>
+            <g
+              role="button"
+              :aria-label="`Delete ${node.title}`"
+              class="graph-node-delete"
+              @click.stop="deleteEvent(node.id)"
             >
-              {{ node.title }}
-            </text>
+              <circle :cx="NODE_W - 10" cy="10" r="8" class="graph-node-delete-bg" />
+              <text
+                :x="NODE_W - 10"
+                y="10"
+                dominant-baseline="middle"
+                text-anchor="middle"
+                class="graph-node-delete-x"
+              >
+                ×
+              </text>
+            </g>
           </g>
         </svg>
       </section>
@@ -677,7 +703,7 @@ select {
   stroke-width: 1;
 }
 
-.graph-node-group {
+.graph-node-clickable {
   cursor: pointer;
 }
 
@@ -685,5 +711,31 @@ select {
   font-size: 12px;
   font-family: inherit;
   fill: #1a1a1a;
+}
+
+.graph-node-delete {
+  cursor: pointer;
+}
+
+.graph-node-delete-bg {
+  fill: #fff;
+  stroke: #c0392b;
+  stroke-width: 1;
+}
+
+.graph-node-delete:hover .graph-node-delete-bg {
+  fill: #c0392b;
+}
+
+.graph-node-delete-x {
+  font-size: 14px;
+  font-family: inherit;
+  fill: #c0392b;
+  pointer-events: none;
+  user-select: none;
+}
+
+.graph-node-delete:hover .graph-node-delete-x {
+  fill: #fff;
 }
 </style>
