@@ -406,9 +406,12 @@ async function logout() {
             </g>
             <g
               role="button"
+              tabindex="0"
               :aria-label="`Delete ${node.title}`"
               class="graph-node-delete"
               @click.stop="deleteEvent(node.id)"
+              @keydown.enter.stop.prevent="deleteEvent(node.id)"
+              @keydown.space.stop.prevent="deleteEvent(node.id)"
             >
               <circle :cx="NODE_W - 10" cy="10" r="8" class="graph-node-delete-bg" />
               <text
