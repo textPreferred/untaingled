@@ -103,6 +103,94 @@ test("graph view shows edges between rooted events", async ({ page, context }) =
   await expect(svg.locator("line.graph-edge")).not.toHaveCount(0);
 });
 
+test("user can edit an event's title from the list", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-event-edit-title");
+
+  await addEvent(page, "Original title");
+
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Original title" })
+    .getByRole("button", { name: "Edit" })
+    .click();
+
+  await expect(page.getByLabel("Title")).toHaveValue("Original title");
+
+  await page.getByLabel("Title").fill("Updated title");
+  await page.getByRole("button", { name: "Save changes" }).click();
+
+  await expect(eventList(page).getByText("Updated title")).toBeVisible();
+  await expect(eventList(page).getByText("Original title")).not.toBeVisible();
+  await expect(page.getByRole("button", { name: "Add event" })).toBeVisible();
+});
+
+test("user can edit an event's description and rootedIn from the list", async ({
+  page,
+  context,
+}) => {
+  await loginAndGoToApp(page, context, "user-event-edit-desc-root");
+
+  await addEvent(page, "Parent event");
+  await addEvent(page, "Target event", { description: "Old description" });
+
+  await page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^Target event$/ }) })
+    .getByRole("button", { name: "Edit" })
+    .click();
+
+  await expect(page.getByLabel("Description")).toHaveValue("Old description");
+
+  await page.getByLabel("Description").fill("New description");
+  await page.getByLabel("Took place while").selectOption({ label: "Parent event" });
+  await page.getByRole("button", { name: "Save changes" }).click();
+
+  const targetItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^Target event$/ }) });
+  await expect(targetItem.getByText("New description")).toBeVisible();
+  await expect(targetItem.getByText("Took place while: Parent event")).toBeVisible();
+});
+
+test("user can cancel an edit", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-event-edit-cancel");
+
+  await addEvent(page, "Keep me");
+
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Keep me" })
+    .getByRole("button", { name: "Edit" })
+    .click();
+
+  await page.getByLabel("Title").fill("Changed in form");
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  await expect(eventList(page).getByText("Keep me")).toBeVisible();
+  await expect(eventList(page).getByText("Changed in form")).not.toBeVisible();
+  await expect(page.getByLabel("Title")).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Add event" })).toBeVisible();
+});
+
+test("user can edit an event by clicking its node in the graph", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-event-edit-graph");
+
+  await addEvent(page, "Graph original");
+
+  await page.getByRole("button", { name: "Graph" }).click();
+
+  const graph = page.getByRole("region", { name: "Event graph" });
+  await graph.getByText("Graph original").click();
+
+  await expect(page.getByLabel("Title")).toHaveValue("Graph original");
+
+  await page.getByLabel("Title").fill("Graph updated");
+  await page.getByRole("button", { name: "Save changes" }).click();
+
+  await expect(graph.getByText("Graph updated")).toBeVisible();
+  await expect(graph.getByText("Graph original")).not.toBeVisible();
+});
+
 test("deleting a root event clears the root reference on child events", async ({
   page,
   context,
