@@ -181,47 +181,26 @@ jobs:
 workflows:
   ci:
     jobs:
-      - install:
-          filters:
-            branches:
-              only: main
+      - install
       - lint:
           requires:
             - install
-          filters:
-            branches:
-              only: main
       - build:
           requires:
             - install
-          filters:
-            branches:
-              only: main
       - test:
           requires:
             - install
-          filters:
-            branches:
-              only: main
       - test-e2e:
           requires:
             - install
             - build
-          filters:
-            branches:
-              only: main
       - security:
           requires:
             - install
-          filters:
-            branches:
-              only: main
       - docker-build:
           requires:
             - install
-          filters:
-            branches:
-              only: main
       - docker-publish:
           requires:
             - lint
