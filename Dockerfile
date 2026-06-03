@@ -7,7 +7,8 @@ FROM cgr.dev/chainguard/node@sha256:045335a479d6c59bab89e3caaaf9ed2aed5528d92e24
 USER root
 ADD --checksum=sha256:9ba98d2134550d6690875b23a4f5c48e74b7cb267e8cc1b8f52605921c6c11ef \
     https://github.com/oven-sh/bun/releases/download/bun-v1.3.6/bun-linux-x64.zip /tmp/bun.zip
-RUN cd /tmp && unzip bun.zip \
+WORKDIR /tmp
+RUN unzip bun.zip \
     && mkdir -p /usr/local/bin \
     && mv bun-linux-x64/bun /usr/local/bin/bun \
     && rm -rf bun.zip bun-linux-x64
