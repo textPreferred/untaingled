@@ -26,4 +26,4 @@ set -a
 [ -f .env ] && . ./.env
 set +a
 
-bun --preload src/instrumentation.ts src/index.ts
+bun --preload ./src/instrumentation.ts ./src/index.ts
