@@ -273,9 +273,9 @@ async function logout() {
         <input id="legacy-username" v-model="legacyUsername" type="text" autocomplete="username" />
       </div>
       <div class="field">
-        <label for="passphrase">Old password</label>
+        <label for="migrate-passphrase">Old password</label>
         <input
-          id="passphrase"
+          id="migrate-passphrase"
           v-model="passphrase"
           type="password"
           autocomplete="current-password"
