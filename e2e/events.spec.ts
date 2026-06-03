@@ -182,13 +182,52 @@ test("user can edit an event by clicking its node in the graph", async ({ page, 
   const graph = page.getByRole("region", { name: "Event graph" });
   await graph.getByText("Graph original").click();
 
-  await expect(page.getByLabel("Title")).toHaveValue("Graph original");
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Graph original");
 
-  await page.getByLabel("Title").fill("Graph updated");
+  await page.getByLabel("Title", { exact: true }).fill("Graph updated");
   await page.getByRole("button", { name: "Save changes" }).click();
 
   await expect(graph.getByText("Graph updated")).toBeVisible();
   await expect(graph.getByText("Graph original")).not.toBeVisible();
+});
+
+test("user can delete an event by clicking the delete button on its graph node", async ({
+  page,
+  context,
+}) => {
+  await loginAndGoToApp(page, context, "user-event-delete-graph");
+
+  await addEvent(page, "Graph delete me");
+
+  await page.getByRole("button", { name: "Graph" }).click();
+
+  const graph = page.getByRole("region", { name: "Event graph" });
+  await expect(graph.getByText("Graph delete me")).toBeVisible();
+
+  await graph.getByRole("button", { name: "Delete Graph delete me" }).click();
+
+  await expect(graph.getByText("Graph delete me")).not.toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Graph delete me" })).not.toBeVisible();
+});
+
+test("user can delete an event from the edit form", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-event-delete-from-form");
+
+  await addEvent(page, "Edit and delete me");
+
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Edit and delete me" })
+    .getByRole("button", { name: "Edit" })
+    .click();
+
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Edit and delete me");
+
+  await page.getByRole("button", { name: "Delete event" }).click();
+
+  await expect(eventList(page).getByText("Edit and delete me")).not.toBeVisible();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Add event" })).toBeVisible();
 });
 
 test("deleting a root event clears the root reference on child events", async ({
