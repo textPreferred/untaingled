@@ -253,3 +253,21 @@ test("deleting a root event clears the root reference on child events", async ({
   await expect(childItem).toBeVisible();
   await expect(childItem.getByText("Took place while:")).not.toBeVisible();
 });
+
+test("user can add a year event by entering a 4-digit year", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-year-add");
+
+  await page.getByLabel("Year").fill("2024");
+  await page.getByRole("button", { name: "Add year" }).click();
+
+  await expect(eventList(page).getByText("2024", { exact: true })).toBeVisible();
+});
+
+test("year input rejects values that are not 4-digit numbers", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-year-validation");
+
+  await page.getByLabel("Year").fill("123");
+  await page.getByRole("button", { name: "Add year" }).click();
+
+  await expect(eventList(page).getByText("123", { exact: true })).not.toBeVisible();
+});
