@@ -13,9 +13,10 @@ async function loginAndGoToApp(page: Page, context: BrowserContext, username: st
     body: JSON.stringify({ username, passphrase: "correct-horse-battery-staple" }),
   });
   const cookie = res.headers.get("set-cookie");
-  if (cookie) {
-    const [name, value] = cookie.split(";")[0]!.split("=");
-    await context.addCookies([{ name, value, url: BASE_URL }]);
+  const [pair] = cookie?.split(";") ?? [];
+  if (pair) {
+    const [name, value] = pair.split("=");
+    if (name && value) await context.addCookies([{ name, value, url: BASE_URL }]);
   }
   await page.goto("/app");
   await expect(page).toHaveURL("/app");
