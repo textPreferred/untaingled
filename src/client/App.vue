@@ -3,10 +3,12 @@ import { ref, onMounted, computed } from "vue";
 
 type View = "auth" | "passphrase" | "migrate" | "app";
 type AppTab = "list" | "graph";
+type EventKind = "event" | "year";
 type EventRow = {
   id: number;
   title: string;
   description: string | null;
+  kind: EventKind;
   root_event_ids: number[];
 };
 
@@ -72,19 +74,21 @@ async function createEvent() {
   await loadEvents();
 }
 
-function eventTitleById(id: number): string | null {
-  return events.value.find((e) => e.id === id)?.title ?? null;
+function eventById(id: number): EventRow | null {
+  return events.value.find((e) => e.id === id) ?? null;
 }
 
 function startEdit(event: EventRow) {
+  if (event.kind === "year") return;
   editingId.value = event.id;
   newTitle.value = event.title;
   newDescription.value = event.description ?? "";
   let yearTitle: string | null = null;
   let nonYearRoot: number | null = null;
   for (const rid of event.root_event_ids) {
-    const t = eventTitleById(rid);
-    if (t && YEAR_RE.test(t)) yearTitle = t;
+    const root = eventById(rid);
+    if (!root) continue;
+    if (root.kind === "year") yearTitle = root.title;
     else if (nonYearRoot === null) nonYearRoot = rid;
   }
   newRootEventId.value = nonYearRoot;
@@ -92,7 +96,7 @@ function startEdit(event: EventRow) {
 }
 
 function startEditById(id: number) {
-  const event = events.value.find((e) => e.id === id);
+  const event = eventById(id);
   if (event) startEdit(event);
 }
 
@@ -122,9 +126,9 @@ type RootLabel = { kind: "year" | "while"; title: string };
 function rootLabels(event: EventRow): RootLabel[] {
   const labels: RootLabel[] = [];
   for (const rid of event.root_event_ids) {
-    const title = eventTitleById(rid);
-    if (!title) continue;
-    labels.push({ kind: YEAR_RE.test(title) ? "year" : "while", title });
+    const root = eventById(rid);
+    if (!root) continue;
+    labels.push({ kind: root.kind === "year" ? "year" : "while", title: root.title });
   }
   return labels;
 }
@@ -132,7 +136,7 @@ function rootLabels(event: EventRow): RootLabel[] {
 const rootSelectId = computed(() => newRootEventId.value ?? "");
 
 const rootOptions = computed(() =>
-  events.value.filter((e) => e.id !== editingId.value && !YEAR_RE.test(e.title)),
+  events.value.filter((e) => e.id !== editingId.value && e.kind !== "year"),
 );
 
 type GraphNode = { id: number; title: string; x: number; y: number };
@@ -407,7 +411,9 @@ async function logout() {
           <div class="event-header">
             <strong>{{ event.title }}</strong>
             <div class="event-actions">
-              <button class="btn-secondary" @click="startEdit(event)">Edit</button>
+              <button v-if="event.kind !== 'year'" class="btn-secondary" @click="startEdit(event)">
+                Edit
+              </button>
               <button class="btn-secondary" @click="deleteEvent(event.id)">Delete</button>
             </div>
           </div>

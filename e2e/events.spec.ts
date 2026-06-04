@@ -303,3 +303,55 @@ test("year input on the event form rejects values that are not 4-digit numbers",
   await page.getByLabel("Took place in").fill("2024");
   await expect(addEventButton).toBeEnabled();
 });
+
+test("year events have no Edit button in the list", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-year-no-edit");
+
+  await addEvent(page, "Birth", { year: "1990" });
+
+  const yearItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^1990$/ }) });
+  await expect(yearItem).toBeVisible();
+  await expect(yearItem.getByRole("button", { name: "Edit" })).toHaveCount(0);
+  await expect(yearItem.getByRole("button", { name: "Delete" })).toBeVisible();
+});
+
+test("clicking a year node in the graph does not open the edit form", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-year-graph-noop");
+
+  await addEvent(page, "Graduation", { year: "2024" });
+
+  await page.getByRole("button", { name: "Graph" }).click();
+
+  const graph = page.getByRole("region", { name: "Event graph" });
+  await graph.getByText("2024", { exact: true }).click();
+
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Add event" })).toBeVisible();
+});
+
+test("API rejects PATCH on a year event", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-year-patch-rejected");
+
+  await addEvent(page, "Wedding", { year: "2010" });
+
+  const yearEvent = await page.evaluate(async () => {
+    const res = await fetch("/api/events");
+    const events = (await res.json()) as { id: number; title: string }[];
+    return events.find((e) => e.title === "2010");
+  });
+  expect(yearEvent).toBeTruthy();
+
+  const patchStatus = await page.evaluate(async (id) => {
+    const res = await fetch(`/api/events/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "changed" }),
+    });
+    return res.status;
+  }, yearEvent!.id);
+
+  expect(patchStatus).toBeGreaterThanOrEqual(400);
+  expect(patchStatus).toBeLessThan(500);
+});

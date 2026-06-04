@@ -64,10 +64,12 @@ type UserRow = {
   encrypted_db_key: string;
   key_salt: string;
 };
+type EventKind = "event" | "year";
 type EventRow = {
   id: number;
   title: string;
   description: string | null;
+  kind: EventKind;
 };
 type EventWithRoots = EventRow & { root_event_ids: number[] };
 
@@ -284,11 +286,11 @@ app.use("/api/*", async (c, next) => {
 // ── Events ────────────────────────────────────────────────────────────────────
 
 async function findOrCreateYearEvent(year: string): Promise<number> {
-  const existing = await db("events").where({ title: year }).first<EventRow>();
+  const existing = await db("events").where({ title: year, kind: "year" }).first<EventRow>();
   if (existing) return existing.id;
   const [created] = await db("events")
-    .insert({ title: year, description: null })
-    .returning<EventRow[]>(["id", "title", "description"]);
+    .insert({ title: year, description: null, kind: "year" })
+    .returning<EventRow[]>(["id", "title", "description", "kind"]);
   if (!created) throw new Error("Failed to create year event");
   return created.id;
 }
@@ -339,8 +341,8 @@ app.post("/api/events", async (c) => {
     return c.json({ error: "Year must be a 4-digit number" }, 400);
 
   const [event] = await db("events")
-    .insert({ title: body.title.trim(), description: body.description ?? null })
-    .returning<EventRow[]>(["id", "title", "description"]);
+    .insert({ title: body.title.trim(), description: body.description ?? null, kind: "event" })
+    .returning<EventRow[]>(["id", "title", "description", "kind"]);
   if (!event) return c.json({ error: "Failed to create event" }, 500);
 
   const rootIds = [...(body.root_event_ids ?? [])];
@@ -355,6 +357,7 @@ app.patch("/api/events/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const existing = await db("events").where({ id }).first<EventRow>();
   if (!existing) return c.json({ error: "Not found" }, 404);
+  if (existing.kind === "year") return c.json({ error: "Year events cannot be edited" }, 400);
   const body = await c.req.json<{
     title?: string;
     description?: string;
