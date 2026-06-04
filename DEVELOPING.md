@@ -9,23 +9,24 @@ cp .env.example .env  # then edit .env with your credentials
 
 ## Scripts
 
-| Command             | Description                                                        |
-| ------------------- | ------------------------------------------------------------------ |
-| `bun dev`           | Build client and start dev server                                  |
-| `bun build`         | Full production build (vite + tsc)                                 |
-| `bun build:client`  | Build client only (vite)                                           |
-| `bun test`          | Run unit tests                                                     |
-| `bun test:coverage` | Run unit tests with LCOV coverage report                           |
-| `bun test:e2e`      | Run Playwright E2E tests (starts and stops Postgres automatically) |
-| `bun test:e2e:ci`   | Run Playwright E2E tests without managing Postgres (used in CI)    |
-| `bun build:image`   | Build Docker image                                                 |
-| `bun start:image`   | Run Docker image on port 3000                                      |
-| `bun db:start`      | Start local Postgres container (for `bun dev`)                     |
-| `bun db:stop`       | Stop and remove local Postgres container                           |
-| `bun lint`          | Lint and auto-fix with oxlint                                      |
-| `bun lint:check`    | Lint check only (no fixes)                                         |
-| `bun format`        | Format and auto-fix with oxfmt                                     |
-| `bun format:check`  | Format check only (no fixes)                                       |
+| Command             | Description                                                                   |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `bun dev`           | Build client and start dev server                                             |
+| `bun dev:watch`     | Same as `bun dev` but restarts on server changes and rebuilds client on edits |
+| `bun build`         | Full production build (vite + tsc)                                            |
+| `bun build:client`  | Build client only (vite)                                                      |
+| `bun test`          | Run unit tests                                                                |
+| `bun test:coverage` | Run unit tests with LCOV coverage report                                      |
+| `bun test:e2e`      | Run Playwright E2E tests (starts and stops Postgres automatically)            |
+| `bun test:e2e:ci`   | Run Playwright E2E tests without managing Postgres (used in CI)               |
+| `bun build:image`   | Build Docker image                                                            |
+| `bun start:image`   | Run Docker image on port 3000                                                 |
+| `bun db:start`      | Start local Postgres container (for `bun dev`)                                |
+| `bun db:stop`       | Stop and remove local Postgres container                                      |
+| `bun lint`          | Lint and auto-fix with oxlint                                                 |
+| `bun lint:check`    | Lint check only (no fixes)                                                    |
+| `bun format`        | Format and auto-fix with oxfmt                                                |
+| `bun format:check`  | Format check only (no fixes)                                                  |
 
 ## Environment
 

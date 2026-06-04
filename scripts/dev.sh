@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+WATCH_FLAG=""
+if [ "$1" = "--watch" ]; then
+  WATCH_FLAG="--watch"
+fi
+
 CONTAINER="pg-dev"
 
 if [ -z "$DATABASE_URL" ]; then
@@ -26,4 +31,10 @@ set -a
 [ -f .env ] && . ./.env
 set +a
 
-bun --preload ./src/instrumentation.ts ./src/index.ts
+if [ -n "$WATCH_FLAG" ]; then
+  bun x vite build --watch &
+  VITE_PID=$!
+  trap 'kill $VITE_PID 2>/dev/null || true' EXIT INT TERM
+fi
+
+bun $WATCH_FLAG --preload ./src/instrumentation.ts ./src/index.ts
