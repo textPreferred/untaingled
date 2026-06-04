@@ -27,12 +27,13 @@ const eventList = (page: Page) => page.getByRole("list");
 async function addEvent(
   page: Page,
   title: string,
-  options?: { description?: string; rootedIn?: string },
+  options?: { description?: string; rootedIn?: string; year?: string },
 ) {
   await page.getByLabel("Title").fill(title);
   if (options?.description) await page.getByLabel("Description").fill(options.description);
   if (options?.rootedIn)
     await page.getByLabel("Took place while").selectOption({ label: options.rootedIn });
+  if (options?.year) await page.getByLabel("Took place in").fill(options.year);
   await page.getByRole("button", { name: "Add event" }).click();
   await expect(eventList(page).getByText(title)).toBeVisible();
 }
@@ -254,20 +255,51 @@ test("deleting a root event clears the root reference on child events", async ({
   await expect(childItem.getByText("Took place while:")).not.toBeVisible();
 });
 
-test("user can add a year event by entering a 4-digit year", async ({ page, context }) => {
+test("entering a year on a new event auto-creates the year event", async ({ page, context }) => {
   await loginAndGoToApp(page, context, "user-year-add");
 
-  await page.getByLabel("Year").fill("2024");
-  await page.getByRole("button", { name: "Add year" }).click();
+  await addEvent(page, "Moon landing", { year: "1969" });
 
-  await expect(eventList(page).getByText("2024", { exact: true })).toBeVisible();
+  await expect(eventList(page).getByText("1969", { exact: true })).toBeVisible();
+  const item = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^Moon landing$/ }) });
+  await expect(item.getByText("Took place in: 1969")).toBeVisible();
 });
 
-test("year input rejects values that are not 4-digit numbers", async ({ page, context }) => {
+test("an event can have both 'Took place while' and 'Took place in' roots", async ({
+  page,
+  context,
+}) => {
+  await loginAndGoToApp(page, context, "user-event-multi-roots");
+
+  await addEvent(page, "University");
+  await addEvent(page, "Graduation", { rootedIn: "University", year: "2024" });
+
+  const item = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^Graduation$/ }) });
+  await expect(item.getByText("Took place while: University")).toBeVisible();
+  await expect(item.getByText("Took place in: 2024")).toBeVisible();
+});
+
+test("year input on the event form rejects values that are not 4-digit numbers", async ({
+  page,
+  context,
+}) => {
   await loginAndGoToApp(page, context, "user-year-validation");
 
-  await page.getByLabel("Year").fill("123");
-  await page.getByRole("button", { name: "Add year" }).click();
+  const addEventButton = page.getByRole("button", { name: "Add event" });
 
-  await expect(eventList(page).getByText("123", { exact: true })).not.toBeVisible();
+  await page.getByLabel("Title").fill("Some event");
+  await expect(addEventButton).toBeEnabled();
+
+  await page.getByLabel("Took place in").fill("123");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("abcd");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2024");
+  await expect(addEventButton).toBeEnabled();
 });
