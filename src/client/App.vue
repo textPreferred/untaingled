@@ -7,8 +7,10 @@ type EventRow = {
   id: number;
   title: string;
   description: string | null;
-  root_event_id: number | null;
+  root_event_ids: number[];
 };
+
+const YEAR_RE = /^\d{4}$/;
 
 const NODE_W = 120;
 const NODE_H = 36;
@@ -26,7 +28,11 @@ const events = ref<EventRow[]>([]);
 const newTitle = ref("");
 const newDescription = ref("");
 const newRootEventId = ref<number | null>(null);
+const newYear = ref("");
 const editingId = ref<number | null>(null);
+
+const isYearValid = computed(() => newYear.value === "" || YEAR_RE.test(newYear.value));
+const canSubmit = computed(() => newTitle.value.trim() !== "" && isYearValid.value);
 
 async function loadEvents() {
   const res = await fetch("/api/events");
@@ -37,34 +43,52 @@ function resetForm() {
   newTitle.value = "";
   newDescription.value = "";
   newRootEventId.value = null;
+  newYear.value = "";
   editingId.value = null;
 }
 
 async function submitForm() {
+  if (!canSubmit.value) return;
   if (editingId.value === null) await createEvent();
   else await saveEdit();
 }
 
+function buildPayload() {
+  return {
+    title: newTitle.value,
+    description: newDescription.value || null,
+    root_event_ids: newRootEventId.value !== null ? [newRootEventId.value] : [],
+    year: newYear.value || undefined,
+  };
+}
+
 async function createEvent() {
-  if (!newTitle.value.trim()) return;
   await fetch("/api/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      title: newTitle.value,
-      description: newDescription.value || null,
-      root_event_id: newRootEventId.value,
-    }),
+    body: JSON.stringify(buildPayload()),
   });
   resetForm();
   await loadEvents();
+}
+
+function eventTitleById(id: number): string | null {
+  return events.value.find((e) => e.id === id)?.title ?? null;
 }
 
 function startEdit(event: EventRow) {
   editingId.value = event.id;
   newTitle.value = event.title;
   newDescription.value = event.description ?? "";
-  newRootEventId.value = event.root_event_id;
+  let yearTitle: string | null = null;
+  let nonYearRoot: number | null = null;
+  for (const rid of event.root_event_ids) {
+    const t = eventTitleById(rid);
+    if (t && YEAR_RE.test(t)) yearTitle = t;
+    else if (nonYearRoot === null) nonYearRoot = rid;
+  }
+  newRootEventId.value = nonYearRoot;
+  newYear.value = yearTitle ?? "";
 }
 
 function startEditById(id: number) {
@@ -78,15 +102,10 @@ function cancelEdit() {
 
 async function saveEdit() {
   if (editingId.value === null) return;
-  if (!newTitle.value.trim()) return;
   await fetch(`/api/events/${editingId.value}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      title: newTitle.value,
-      description: newDescription.value || null,
-      root_event_id: newRootEventId.value,
-    }),
+    body: JSON.stringify(buildPayload()),
   });
   resetForm();
   await loadEvents();
@@ -98,14 +117,23 @@ async function deleteEvent(id: number) {
   await loadEvents();
 }
 
-function rootTitle(event: EventRow): string | null {
-  if (event.root_event_id === null) return null;
-  return events.value.find((e) => e.id === event.root_event_id)?.title ?? null;
+type RootLabel = { kind: "year" | "while"; title: string };
+
+function rootLabels(event: EventRow): RootLabel[] {
+  const labels: RootLabel[] = [];
+  for (const rid of event.root_event_ids) {
+    const title = eventTitleById(rid);
+    if (!title) continue;
+    labels.push({ kind: YEAR_RE.test(title) ? "year" : "while", title });
+  }
+  return labels;
 }
 
 const rootSelectId = computed(() => newRootEventId.value ?? "");
 
-const rootOptions = computed(() => events.value.filter((e) => e.id !== editingId.value));
+const rootOptions = computed(() =>
+  events.value.filter((e) => e.id !== editingId.value && !YEAR_RE.test(e.title)),
+);
 
 type GraphNode = { id: number; title: string; x: number; y: number };
 type GraphEdge = { x1: number; y1: number; x2: number; y2: number };
@@ -114,9 +142,12 @@ const graph = computed(() => {
   const evs = events.value;
   if (evs.length === 0) return { nodes: [], edges: [], width: 0, height: 0 };
 
+  const firstRootOf = new Map<number, number | null>();
+  for (const e of evs) firstRootOf.set(e.id, e.root_event_ids[0] ?? null);
+
   const childrenOf = new Map<number | null, number[]>();
   for (const e of evs) {
-    const key = e.root_event_id;
+    const key = firstRootOf.get(e.id) ?? null;
     if (!childrenOf.has(key)) childrenOf.set(key, []);
     childrenOf.get(key)!.push(e.id);
   }
@@ -157,16 +188,17 @@ const graph = computed(() => {
 
   const edges: GraphEdge[] = [];
   for (const e of evs) {
-    if (e.root_event_id === null) continue;
-    const parent = nodes.find((n) => n.id === e.root_event_id);
-    const child = nodes.find((n) => n.id === e.id);
-    if (parent && child) {
-      edges.push({
-        x1: parent.x + NODE_W / 2,
-        y1: parent.y + NODE_H,
-        x2: child.x + NODE_W / 2,
-        y2: child.y,
-      });
+    for (const rid of e.root_event_ids) {
+      const parent = nodes.find((n) => n.id === rid);
+      const child = nodes.find((n) => n.id === e.id);
+      if (parent && child) {
+        edges.push({
+          x1: parent.x + NODE_W / 2,
+          y1: parent.y + NODE_H,
+          x2: child.x + NODE_W / 2,
+          y2: child.y,
+        });
+      }
     }
   }
 
@@ -302,24 +334,38 @@ async function logout() {
           <label for="new-description">Description</label>
           <textarea id="new-description" v-model="newDescription" rows="2" />
         </div>
-        <div class="field">
-          <label
-            for="new-root"
-            title="The new event started while the other one was ongoing, like getting married while you were at university"
-            >Took place while</label
-          >
-          <select
-            id="new-root"
-            :value="rootSelectId"
-            @change="
-              newRootEventId = ($event.target as HTMLSelectElement).value
-                ? Number(($event.target as HTMLSelectElement).value)
-                : null
-            "
-          >
-            <option value="">None</option>
-            <option v-for="e in rootOptions" :key="e.id" :value="e.id">{{ e.title }}</option>
-          </select>
+        <div class="root-fields">
+          <div class="field">
+            <label
+              for="new-root"
+              title="The new event started while the other one was ongoing, like getting married while you were at university"
+              >Took place while</label
+            >
+            <select
+              id="new-root"
+              :value="rootSelectId"
+              @change="
+                newRootEventId = ($event.target as HTMLSelectElement).value
+                  ? Number(($event.target as HTMLSelectElement).value)
+                  : null
+              "
+            >
+              <option value="">None</option>
+              <option v-for="e in rootOptions" :key="e.id" :value="e.id">{{ e.title }}</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="new-year">Took place in</label>
+            <input
+              id="new-year"
+              v-model="newYear"
+              type="text"
+              inputmode="numeric"
+              pattern="\d{4}"
+              maxlength="4"
+              placeholder="Year"
+            />
+          </div>
         </div>
         <div class="actions">
           <button
@@ -333,7 +379,7 @@ async function logout() {
           <button v-if="editingId !== null" type="button" class="btn-secondary" @click="cancelEdit">
             Cancel
           </button>
-          <button type="submit" class="btn-primary">
+          <button type="submit" class="btn-primary" :disabled="!canSubmit">
             {{ editingId === null ? "Add event" : "Save changes" }}
           </button>
         </div>
@@ -364,7 +410,13 @@ async function logout() {
             </div>
           </div>
           <p v-if="event.description" class="event-description">{{ event.description }}</p>
-          <p v-if="rootTitle(event)" class="event-root">Took place while: {{ rootTitle(event) }}</p>
+          <p
+            v-for="label in rootLabels(event)"
+            :key="`${label.kind}-${label.title}`"
+            class="event-root"
+          >
+            {{ label.kind === "year" ? "Took place in" : "Took place while" }}: {{ label.title }}
+          </p>
         </li>
       </ul>
 
@@ -617,6 +669,16 @@ button {
   flex-direction: column;
   gap: 0.75rem;
   margin-bottom: 1.5rem;
+}
+
+.root-fields {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.root-fields .field {
+  flex: 1;
+  min-width: 0;
 }
 
 textarea {

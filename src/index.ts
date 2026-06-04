@@ -68,8 +68,8 @@ type EventRow = {
   id: number;
   title: string;
   description: string | null;
-  root_event_id: number | null;
 };
+type EventWithRoots = EventRow & { root_event_ids: number[] };
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
 
@@ -283,22 +283,72 @@ app.use("/api/*", async (c, next) => {
 
 // ── Events ────────────────────────────────────────────────────────────────────
 
-app.get("/api/events", async (c) => {
+async function findOrCreateYearEvent(year: string): Promise<number> {
+  const existing = await db("events").where({ title: year }).first<EventRow>();
+  if (existing) return existing.id;
+  const [created] = await db("events")
+    .insert({ title: year, description: null })
+    .returning<EventRow[]>(["id", "title", "description"]);
+  if (!created) throw new Error("Failed to create year event");
+  return created.id;
+}
+
+async function loadEventsWithRoots(): Promise<EventWithRoots[]> {
   const events = await db("events").select<EventRow[]>();
-  return c.json(events);
+  const roots = await db("event_roots").select<{ event_id: number; root_event_id: number }[]>();
+  const rootsByEvent = new Map<number, number[]>();
+  for (const r of roots) {
+    if (!rootsByEvent.has(r.event_id)) rootsByEvent.set(r.event_id, []);
+    rootsByEvent.get(r.event_id)!.push(r.root_event_id);
+  }
+  return events.map((e) => ({ ...e, root_event_ids: rootsByEvent.get(e.id) ?? [] }));
+}
+
+async function getEventWithRoots(id: number): Promise<EventWithRoots | null> {
+  const event = await db("events").where({ id }).first<EventRow>();
+  if (!event) return null;
+  const roots = await db("event_roots")
+    .where({ event_id: id })
+    .select<{ root_event_id: number }[]>("root_event_id");
+  return { ...event, root_event_ids: roots.map((r) => r.root_event_id) };
+}
+
+async function setEventRoots(eventId: number, rootIds: number[]): Promise<void> {
+  await db("event_roots").where({ event_id: eventId }).delete();
+  const unique = [...new Set(rootIds)].filter((id) => id !== eventId);
+  if (unique.length > 0) {
+    await db("event_roots").insert(
+      unique.map((root_event_id) => ({ event_id: eventId, root_event_id })),
+    );
+  }
+}
+
+app.get("/api/events", async (c) => {
+  return c.json(await loadEventsWithRoots());
 });
 
 app.post("/api/events", async (c) => {
-  const body = await c.req.json<{ title?: string; description?: string; root_event_id?: number }>();
+  const body = await c.req.json<{
+    title?: string;
+    description?: string;
+    root_event_ids?: number[];
+    year?: string;
+  }>();
   if (!body.title?.trim()) return c.json({ error: "Title is required" }, 400);
+  if (body.year !== undefined && body.year !== "" && !/^\d{4}$/.test(body.year))
+    return c.json({ error: "Year must be a 4-digit number" }, 400);
+
   const [event] = await db("events")
-    .insert({
-      title: body.title.trim(),
-      description: body.description ?? null,
-      root_event_id: body.root_event_id ?? null,
-    })
-    .returning<EventRow[]>(["id", "title", "description", "root_event_id"]);
-  return c.json(event, 201);
+    .insert({ title: body.title.trim(), description: body.description ?? null })
+    .returning<EventRow[]>(["id", "title", "description"]);
+  if (!event) return c.json({ error: "Failed to create event" }, 500);
+
+  const rootIds = [...(body.root_event_ids ?? [])];
+  if (body.year) rootIds.push(await findOrCreateYearEvent(body.year));
+  await setEventRoots(event.id, rootIds);
+
+  const result = await getEventWithRoots(event.id);
+  return c.json(result, 201);
 });
 
 app.patch("/api/events/:id", async (c) => {
@@ -308,19 +358,28 @@ app.patch("/api/events/:id", async (c) => {
   const body = await c.req.json<{
     title?: string;
     description?: string;
-    root_event_id?: number | null;
+    root_event_ids?: number[];
+    year?: string;
   }>();
   if (body.title !== undefined && !body.title.trim())
     return c.json({ error: "Title is required" }, 400);
-  const [event] = await db("events")
+  if (body.year !== undefined && body.year !== "" && !/^\d{4}$/.test(body.year))
+    return c.json({ error: "Year must be a 4-digit number" }, 400);
+
+  await db("events")
     .where({ id })
     .update({
       ...(body.title !== undefined ? { title: body.title.trim() } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
-      ...(body.root_event_id !== undefined ? { root_event_id: body.root_event_id } : {}),
-    })
-    .returning<EventRow[]>(["id", "title", "description", "root_event_id"]);
-  return c.json(event);
+    });
+
+  if (body.root_event_ids !== undefined || body.year !== undefined) {
+    const rootIds = [...(body.root_event_ids ?? [])];
+    if (body.year) rootIds.push(await findOrCreateYearEvent(body.year));
+    await setEventRoots(id, rootIds);
+  }
+
+  return c.json(await getEventWithRoots(id));
 });
 
 app.delete("/api/events/:id", async (c) => {
