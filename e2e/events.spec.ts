@@ -351,6 +351,31 @@ test("date input rejects out-of-range months and days", async ({ page, context }
   await expect(addEventButton).toBeEnabled();
 });
 
+test("date input shows an inline error explaining the problem", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-date-error-message");
+
+  const dateInput = page.getByLabel("Took place in");
+  const dateError = page.getByTestId("date-error");
+
+  await page.getByLabel("Title").fill("Some event");
+  await expect(dateError).toHaveCount(0);
+
+  await dateInput.fill("abcd");
+  await expect(dateError).toContainText("yyyy");
+
+  await dateInput.fill("2024-13");
+  await expect(dateError).toContainText(/month/i);
+
+  await dateInput.fill("2020-02-30");
+  await expect(dateError).toContainText(/day/i);
+
+  await dateInput.fill("2020-02-29");
+  await expect(dateError).toHaveCount(0);
+
+  await dateInput.fill("");
+  await expect(dateError).toHaveCount(0);
+});
+
 test("API rejects POST with out-of-range month or day", async ({ page, context }) => {
   await loginAndGoToApp(page, context, "user-date-api-validation");
 
