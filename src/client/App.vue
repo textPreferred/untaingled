@@ -350,11 +350,11 @@ async function logout() {
                   : null
               "
             >
-              <option value="">None</option>
+              <option value=""></option>
               <option v-for="e in rootOptions" :key="e.id" :value="e.id">{{ e.title }}</option>
             </select>
           </div>
-          <div class="field">
+          <div class="field year-field">
             <label for="new-year">Took place in</label>
             <input
               id="new-year"
@@ -363,7 +363,9 @@ async function logout() {
               inputmode="numeric"
               pattern="\d{4}"
               maxlength="4"
-              placeholder="Year"
+              size="4"
+              placeholder="yyyy"
+              class="year-input"
             />
           </div>
         </div>
@@ -679,6 +681,14 @@ button {
 .root-fields .field {
   flex: 1;
   min-width: 0;
+}
+
+.year-field {
+  flex: 0 0 auto;
+}
+
+.year-input {
+  width: calc(4ch + 1.5rem);
 }
 
 textarea {
