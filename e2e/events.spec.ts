@@ -331,6 +331,21 @@ test("clicking a year node in the graph does not open the edit form", async ({ p
   await expect(page.getByRole("button", { name: "Add event" })).toBeVisible();
 });
 
+test("year nodes in the graph do not show a pointer cursor", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-year-graph-cursor");
+
+  await addEvent(page, "Birth", { year: "1990" });
+
+  await page.getByRole("button", { name: "Graph" }).click();
+
+  const graph = page.getByRole("region", { name: "Event graph" });
+  const yearText = graph.getByText("1990", { exact: true });
+  const cursor = await yearText.evaluate(
+    (el) => globalThis.getComputedStyle(el.parentElement!).cursor,
+  );
+  expect(cursor).not.toBe("pointer");
+});
+
 test("API rejects PATCH on a year event", async ({ page, context }) => {
   await loginAndGoToApp(page, context, "user-year-patch-rejected");
 

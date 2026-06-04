@@ -139,7 +139,7 @@ const rootOptions = computed(() =>
   events.value.filter((e) => e.id !== editingId.value && e.kind !== "year"),
 );
 
-type GraphNode = { id: number; title: string; x: number; y: number };
+type GraphNode = { id: number; title: string; kind: EventKind; x: number; y: number };
 type GraphEdge = { x1: number; y1: number; x2: number; y2: number };
 
 const graph = computed(() => {
@@ -168,6 +168,7 @@ const graph = computed(() => {
       nodes.push({
         id,
         title: byId.get(id)!.title,
+        kind: byId.get(id)!.kind,
         x: colStart * (NODE_W + H_GAP),
         y: depth * (NODE_H + V_GAP),
       });
@@ -182,7 +183,13 @@ const graph = computed(() => {
     const firstChild = childCols[0]!;
     const lastChild = childCols[childCols.length - 1]!;
     const cx = ((firstChild + lastChild) / 2) * (NODE_W + H_GAP);
-    nodes.push({ id, title: byId.get(id)!.title, x: cx, y: depth * (NODE_H + V_GAP) });
+    nodes.push({
+      id,
+      title: byId.get(id)!.title,
+      kind: byId.get(id)!.kind,
+      x: cx,
+      y: depth * (NODE_H + V_GAP),
+    });
     return col;
   }
 
@@ -452,7 +459,10 @@ async function logout() {
             :transform="`translate(${node.x},${node.y})`"
             class="graph-node-group"
           >
-            <g class="graph-node-clickable" @click="startEditById(node.id)">
+            <g
+              :class="node.kind === 'year' ? 'graph-node-year' : 'graph-node-clickable'"
+              @click="startEditById(node.id)"
+            >
               <rect :width="NODE_W" :height="NODE_H" rx="4" class="graph-node" />
               <text
                 :x="NODE_W / 2"
@@ -786,6 +796,10 @@ select {
 
 .graph-node-clickable {
   cursor: pointer;
+}
+
+.graph-node-year {
+  cursor: default;
 }
 
 .graph-label {
