@@ -300,20 +300,38 @@ test("date input on the event form accepts yyyy, yyyy-mm, yyyy-mm-dd and rejects
   await page.getByLabel("Took place in").fill("abcd");
   await expect(addEventButton).toBeDisabled();
 
-  await page.getByLabel("Took place in").fill("2024-3");
-  await expect(addEventButton).toBeDisabled();
-
-  await page.getByLabel("Took place in").fill("2024-03-4");
-  await expect(addEventButton).toBeDisabled();
-
   await page.getByLabel("Took place in").fill("2024");
   await expect(addEventButton).toBeEnabled();
 
   await page.getByLabel("Took place in").fill("2024-03");
   await expect(addEventButton).toBeEnabled();
 
+  await page.getByLabel("Took place in").fill("2024-3");
+  await expect(addEventButton).toBeEnabled();
+
   await page.getByLabel("Took place in").fill("2024-03-04");
   await expect(addEventButton).toBeEnabled();
+
+  await page.getByLabel("Took place in").fill("2024-3-4");
+  await expect(addEventButton).toBeEnabled();
+});
+
+test("single-digit month and day inputs are stored as zero-padded values", async ({
+  page,
+  context,
+}) => {
+  await loginAndGoToApp(page, context, "user-date-normalize");
+
+  await addEvent(page, "Sunset", { date: "2018-5-3" });
+
+  await expect(eventList(page).getByText("2018-05-03", { exact: true })).toBeVisible();
+  await expect(eventList(page).getByText("2018-05", { exact: true })).toBeVisible();
+  await expect(eventList(page).getByText("2018", { exact: true })).toBeVisible();
+
+  const childItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^Sunset$/ }) });
+  await expect(childItem.getByText("Took place in: 2018-05-03")).toBeVisible();
 });
 
 test("date input rejects out-of-range months and days", async ({ page, context }) => {
