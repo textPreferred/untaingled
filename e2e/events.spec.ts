@@ -316,6 +316,70 @@ test("date input on the event form accepts yyyy, yyyy-mm, yyyy-mm-dd and rejects
   await expect(addEventButton).toBeEnabled();
 });
 
+test("date input rejects out-of-range months and days", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-date-range-validation");
+
+  const addEventButton = page.getByRole("button", { name: "Add event" });
+
+  await page.getByLabel("Title").fill("Some event");
+
+  await page.getByLabel("Took place in").fill("2024-00");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2024-13");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2024-01-00");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2024-01-34");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2024-04-31");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2020-02-30");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2021-02-29");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2020-02-29");
+  await expect(addEventButton).toBeEnabled();
+
+  await page.getByLabel("Took place in").fill("2024-12-31");
+  await expect(addEventButton).toBeEnabled();
+});
+
+test("API rejects POST with out-of-range month or day", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-date-api-validation");
+
+  const statuses = await page.evaluate(async () => {
+    async function post(date: string) {
+      const res = await fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "x", date }),
+      });
+      return res.status;
+    }
+    return {
+      monthZero: await post("2024-00"),
+      monthThirteen: await post("2024-13"),
+      dayZero: await post("2024-01-00"),
+      dayThirtyFour: await post("2024-01-34"),
+      aprilThirtyOne: await post("2024-04-31"),
+      febThirtyLeap: await post("2020-02-30"),
+      febTwentyNineNonLeap: await post("2021-02-29"),
+    };
+  });
+
+  for (const [, status] of Object.entries(statuses)) {
+    expect(status).toBeGreaterThanOrEqual(400);
+    expect(status).toBeLessThan(500);
+  }
+});
+
 test("year events have no Edit button in the list", async ({ page, context }) => {
   await loginAndGoToApp(page, context, "user-year-no-edit");
 
