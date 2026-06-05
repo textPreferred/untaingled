@@ -12,19 +12,51 @@ type EventRow = {
   root_event_ids: number[];
 };
 
-const DATE_RE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+const DATE_RE = /^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$/;
+
+type ParsedDate = { year: string; month?: string; day?: string };
+
+function parseDate(date: string): ParsedDate | null {
+  const m = DATE_RE.exec(date);
+  if (!m) return null;
+  return {
+    year: m[1]!,
+    ...(m[2] !== undefined ? { month: m[2] } : {}),
+    ...(m[3] !== undefined ? { day: m[3] } : {}),
+  };
+}
 
 function isValidDate(date: string): boolean {
-  if (!DATE_RE.test(date)) return false;
-  if (date.length === 4) return true;
-  const month = Number(date.slice(5, 7));
+  const p = parseDate(date);
+  if (!p) return false;
+  if (!p.month) return true;
+  const month = Number(p.month);
   if (month < 1 || month > 12) return false;
-  if (date.length === 7) return true;
-  const year = Number(date.slice(0, 4));
-  const day = Number(date.slice(8, 10));
+  if (!p.day) return true;
+  const year = Number(p.year);
+  const day = Number(p.day);
   if (day < 1) return false;
   const dt = new Date(year, month - 1, day);
   return dt.getFullYear() === year && dt.getMonth() === month - 1 && dt.getDate() === day;
+}
+
+function dateErrorMessage(date: string): string | null {
+  if (date === "") return null;
+  const p = parseDate(date);
+  if (!p) return "Use yyyy, yyyy-mm, or yyyy-mm-dd";
+  if (p.month) {
+    const month = Number(p.month);
+    if (month < 1 || month > 12) return "Month must be between 01 and 12";
+  }
+  if (p.day) {
+    const year = Number(p.year);
+    const month = Number(p.month);
+    const day = Number(p.day);
+    const dt = new Date(year, month - 1, day);
+    if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day)
+      return `Day ${p.day} is not valid for ${p.year}-${p.month!.padStart(2, "0")}`;
+  }
+  return null;
 }
 
 const NODE_W = 120;
@@ -47,6 +79,7 @@ const newDate = ref("");
 const editingId = ref<number | null>(null);
 
 const isDateValid = computed(() => newDate.value === "" || isValidDate(newDate.value));
+const dateError = computed(() => dateErrorMessage(newDate.value));
 const canSubmit = computed(() => newTitle.value.trim() !== "" && isDateValid.value);
 
 async function loadEvents() {
@@ -384,12 +417,13 @@ async function logout() {
               id="new-date"
               v-model="newDate"
               type="text"
-              pattern="\d{4}(-\d{2}(-\d{2})?)?"
+              pattern="\d{4}(-\d{1,2}(-\d{1,2})?)?"
               maxlength="10"
               size="10"
               placeholder="yyyy-mm-dd"
               class="date-input"
             />
+            <p v-if="dateError" data-testid="date-error" class="error">{{ dateError }}</p>
           </div>
         </div>
         <div class="actions">
