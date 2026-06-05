@@ -64,7 +64,49 @@ type UserRow = {
   encrypted_db_key: string;
   key_salt: string;
 };
-type EventKind = "event" | "year";
+type EventKind = "event" | "date";
+
+const DATE_PATTERN = /^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$/;
+
+function parseDate(date: string): { year: string; month?: string; day?: string } | null {
+  const m = DATE_PATTERN.exec(date);
+  if (!m) return null;
+  return {
+    year: m[1]!,
+    ...(m[2] !== undefined ? { month: m[2] } : {}),
+    ...(m[3] !== undefined ? { day: m[3] } : {}),
+  };
+}
+
+function normalizeDate(date: string): string {
+  const p = parseDate(date);
+  if (!p) return date;
+  let r = p.year;
+  if (p.month) r += "-" + p.month.padStart(2, "0");
+  if (p.day) r += "-" + p.day.padStart(2, "0");
+  return r;
+}
+
+function isValidDate(date: string): boolean {
+  const p = parseDate(date);
+  if (!p) return false;
+  if (!p.month) return true;
+  const month = Number(p.month);
+  if (month < 1 || month > 12) return false;
+  if (!p.day) return true;
+  const year = Number(p.year);
+  const day = Number(p.day);
+  if (day < 1) return false;
+  const dt = new Date(year, month - 1, day);
+  return dt.getFullYear() === year && dt.getMonth() === month - 1 && dt.getDate() === day;
+}
+
+function dateParents(date: string): string[] {
+  const parents: string[] = [];
+  if (date.length === 10) parents.push(date.slice(0, 7));
+  if (date.length >= 7) parents.push(date.slice(0, 4));
+  return parents;
+}
 type EventRow = {
   id: number;
   title: string;
@@ -285,13 +327,18 @@ app.use("/api/*", async (c, next) => {
 
 // ── Events ────────────────────────────────────────────────────────────────────
 
-async function findOrCreateYearEvent(year: string): Promise<number> {
-  const existing = await db("events").where({ title: year, kind: "year" }).first<EventRow>();
+async function findOrCreateDateEvent(date: string): Promise<number> {
+  const existing = await db("events").where({ title: date, kind: "date" }).first<EventRow>();
   if (existing) return existing.id;
   const [created] = await db("events")
-    .insert({ title: year, description: null, kind: "year" })
+    .insert({ title: date, description: null, kind: "date" })
     .returning<EventRow[]>(["id", "title", "description", "kind"]);
-  if (!created) throw new Error("Failed to create year event");
+  if (!created) throw new Error("Failed to create date event");
+  const parents = dateParents(date);
+  if (parents.length > 0) {
+    const parentId = await findOrCreateDateEvent(parents[0]!);
+    await setEventRoots(created.id, [parentId]);
+  }
   return created.id;
 }
 
@@ -334,11 +381,11 @@ app.post("/api/events", async (c) => {
     title?: string;
     description?: string;
     root_event_ids?: number[];
-    year?: string;
+    date?: string;
   }>();
   if (!body.title?.trim()) return c.json({ error: "Title is required" }, 400);
-  if (body.year !== undefined && body.year !== "" && !/^\d{4}$/.test(body.year))
-    return c.json({ error: "Year must be a 4-digit number" }, 400);
+  if (body.date !== undefined && body.date !== "" && !isValidDate(body.date))
+    return c.json({ error: "Date must be a valid yyyy, yyyy-mm, or yyyy-mm-dd" }, 400);
 
   const [event] = await db("events")
     .insert({ title: body.title.trim(), description: body.description ?? null, kind: "event" })
@@ -346,7 +393,7 @@ app.post("/api/events", async (c) => {
   if (!event) return c.json({ error: "Failed to create event" }, 500);
 
   const rootIds = [...(body.root_event_ids ?? [])];
-  if (body.year) rootIds.push(await findOrCreateYearEvent(body.year));
+  if (body.date) rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date)));
   await setEventRoots(event.id, rootIds);
 
   const result = await getEventWithRoots(event.id);
@@ -357,17 +404,17 @@ app.patch("/api/events/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const existing = await db("events").where({ id }).first<EventRow>();
   if (!existing) return c.json({ error: "Not found" }, 404);
-  if (existing.kind === "year") return c.json({ error: "Year events cannot be edited" }, 400);
+  if (existing.kind === "date") return c.json({ error: "Date events cannot be edited" }, 400);
   const body = await c.req.json<{
     title?: string;
     description?: string;
     root_event_ids?: number[];
-    year?: string;
+    date?: string;
   }>();
   if (body.title !== undefined && !body.title.trim())
     return c.json({ error: "Title is required" }, 400);
-  if (body.year !== undefined && body.year !== "" && !/^\d{4}$/.test(body.year))
-    return c.json({ error: "Year must be a 4-digit number" }, 400);
+  if (body.date !== undefined && body.date !== "" && !isValidDate(body.date))
+    return c.json({ error: "Date must be a valid yyyy, yyyy-mm, or yyyy-mm-dd" }, 400);
 
   await db("events")
     .where({ id })
@@ -376,9 +423,9 @@ app.patch("/api/events/:id", async (c) => {
       ...(body.description !== undefined ? { description: body.description } : {}),
     });
 
-  if (body.root_event_ids !== undefined || body.year !== undefined) {
+  if (body.root_event_ids !== undefined || body.date !== undefined) {
     const rootIds = [...(body.root_event_ids ?? [])];
-    if (body.year) rootIds.push(await findOrCreateYearEvent(body.year));
+    if (body.date) rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date)));
     await setEventRoots(id, rootIds);
   }
 

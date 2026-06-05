@@ -27,13 +27,13 @@ const eventList = (page: Page) => page.getByRole("list");
 async function addEvent(
   page: Page,
   title: string,
-  options?: { description?: string; rootedIn?: string; year?: string },
+  options?: { description?: string; rootedIn?: string; date?: string },
 ) {
   await page.getByLabel("Title").fill(title);
   if (options?.description) await page.getByLabel("Description").fill(options.description);
   if (options?.rootedIn)
     await page.getByLabel("Took place while").selectOption({ label: options.rootedIn });
-  if (options?.year) await page.getByLabel("Took place in").fill(options.year);
+  if (options?.date) await page.getByLabel("Took place in").fill(options.date);
   await page.getByRole("button", { name: "Add event" }).click();
   await expect(eventList(page).getByText(title)).toBeVisible();
 }
@@ -258,7 +258,7 @@ test("deleting a root event clears the root reference on child events", async ({
 test("entering a year on a new event auto-creates the year event", async ({ page, context }) => {
   await loginAndGoToApp(page, context, "user-year-add");
 
-  await addEvent(page, "Moon landing", { year: "1969" });
+  await addEvent(page, "Moon landing", { date: "1969" });
 
   await expect(eventList(page).getByText("1969", { exact: true })).toBeVisible();
   const item = page
@@ -274,7 +274,7 @@ test("an event can have both 'Took place while' and 'Took place in' roots", asyn
   await loginAndGoToApp(page, context, "user-event-multi-roots");
 
   await addEvent(page, "University");
-  await addEvent(page, "Graduation", { rootedIn: "University", year: "2024" });
+  await addEvent(page, "Graduation", { rootedIn: "University", date: "2024" });
 
   const item = page
     .getByRole("listitem")
@@ -283,11 +283,11 @@ test("an event can have both 'Took place while' and 'Took place in' roots", asyn
   await expect(item.getByText("Took place in: 2024")).toBeVisible();
 });
 
-test("year input on the event form rejects values that are not 4-digit numbers", async ({
+test("date input on the event form accepts yyyy, yyyy-mm, yyyy-mm-dd and rejects others", async ({
   page,
   context,
 }) => {
-  await loginAndGoToApp(page, context, "user-year-validation");
+  await loginAndGoToApp(page, context, "user-date-validation");
 
   const addEventButton = page.getByRole("button", { name: "Add event" });
 
@@ -302,12 +302,131 @@ test("year input on the event form rejects values that are not 4-digit numbers",
 
   await page.getByLabel("Took place in").fill("2024");
   await expect(addEventButton).toBeEnabled();
+
+  await page.getByLabel("Took place in").fill("2024-03");
+  await expect(addEventButton).toBeEnabled();
+
+  await page.getByLabel("Took place in").fill("2024-3");
+  await expect(addEventButton).toBeEnabled();
+
+  await page.getByLabel("Took place in").fill("2024-03-04");
+  await expect(addEventButton).toBeEnabled();
+
+  await page.getByLabel("Took place in").fill("2024-3-4");
+  await expect(addEventButton).toBeEnabled();
+});
+
+test("single-digit month and day inputs are stored as zero-padded values", async ({
+  page,
+  context,
+}) => {
+  await loginAndGoToApp(page, context, "user-date-normalize");
+
+  await addEvent(page, "Sunset", { date: "2018-5-3" });
+
+  await expect(eventList(page).getByText("2018-05-03", { exact: true })).toBeVisible();
+  await expect(eventList(page).getByText("2018-05", { exact: true })).toBeVisible();
+  await expect(eventList(page).getByText("2018", { exact: true })).toBeVisible();
+
+  const childItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^Sunset$/ }) });
+  await expect(childItem.getByText("Took place in: 2018-05-03")).toBeVisible();
+});
+
+test("date input rejects out-of-range months and days", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-date-range-validation");
+
+  const addEventButton = page.getByRole("button", { name: "Add event" });
+
+  await page.getByLabel("Title").fill("Some event");
+
+  await page.getByLabel("Took place in").fill("2024-00");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2024-13");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2024-01-00");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2024-01-34");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2024-04-31");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2020-02-30");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2021-02-29");
+  await expect(addEventButton).toBeDisabled();
+
+  await page.getByLabel("Took place in").fill("2020-02-29");
+  await expect(addEventButton).toBeEnabled();
+
+  await page.getByLabel("Took place in").fill("2024-12-31");
+  await expect(addEventButton).toBeEnabled();
+});
+
+test("date input shows an inline error explaining the problem", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-date-error-message");
+
+  const dateInput = page.getByLabel("Took place in");
+  const dateError = page.getByTestId("date-error");
+
+  await page.getByLabel("Title").fill("Some event");
+  await expect(dateError).toHaveCount(0);
+
+  await dateInput.fill("abcd");
+  await expect(dateError).toContainText("yyyy");
+
+  await dateInput.fill("2024-13");
+  await expect(dateError).toContainText(/month/i);
+
+  await dateInput.fill("2020-02-30");
+  await expect(dateError).toContainText(/day/i);
+
+  await dateInput.fill("2020-02-29");
+  await expect(dateError).toHaveCount(0);
+
+  await dateInput.fill("");
+  await expect(dateError).toHaveCount(0);
+});
+
+test("API rejects POST with out-of-range month or day", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-date-api-validation");
+
+  const statuses = await page.evaluate(async () => {
+    async function post(date: string) {
+      const res = await fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "x", date }),
+      });
+      return res.status;
+    }
+    return {
+      monthZero: await post("2024-00"),
+      monthThirteen: await post("2024-13"),
+      dayZero: await post("2024-01-00"),
+      dayThirtyFour: await post("2024-01-34"),
+      aprilThirtyOne: await post("2024-04-31"),
+      febThirtyLeap: await post("2020-02-30"),
+      febTwentyNineNonLeap: await post("2021-02-29"),
+    };
+  });
+
+  for (const [, status] of Object.entries(statuses)) {
+    expect(status).toBeGreaterThanOrEqual(400);
+    expect(status).toBeLessThan(500);
+  }
 });
 
 test("year events have no Edit button in the list", async ({ page, context }) => {
   await loginAndGoToApp(page, context, "user-year-no-edit");
 
-  await addEvent(page, "Birth", { year: "1990" });
+  await addEvent(page, "Birth", { date: "1990" });
 
   const yearItem = page
     .getByRole("listitem")
@@ -320,7 +439,7 @@ test("year events have no Edit button in the list", async ({ page, context }) =>
 test("clicking a year node in the graph does not open the edit form", async ({ page, context }) => {
   await loginAndGoToApp(page, context, "user-year-graph-noop");
 
-  await addEvent(page, "Graduation", { year: "2024" });
+  await addEvent(page, "Graduation", { date: "2024" });
 
   await page.getByRole("button", { name: "Graph" }).click();
 
@@ -334,7 +453,7 @@ test("clicking a year node in the graph does not open the edit form", async ({ p
 test("year nodes in the graph do not show a pointer cursor", async ({ page, context }) => {
   await loginAndGoToApp(page, context, "user-year-graph-cursor");
 
-  await addEvent(page, "Birth", { year: "1990" });
+  await addEvent(page, "Birth", { date: "1990" });
 
   await page.getByRole("button", { name: "Graph" }).click();
 
@@ -349,7 +468,7 @@ test("year nodes in the graph do not show a pointer cursor", async ({ page, cont
 test("API rejects PATCH on a year event", async ({ page, context }) => {
   await loginAndGoToApp(page, context, "user-year-patch-rejected");
 
-  await addEvent(page, "Wedding", { year: "2010" });
+  await addEvent(page, "Wedding", { date: "2010" });
 
   const yearEvent = await page.evaluate(async () => {
     const res = await fetch("/api/events");
@@ -369,4 +488,109 @@ test("API rejects PATCH on a year event", async ({ page, context }) => {
 
   expect(patchStatus).toBeGreaterThanOrEqual(400);
   expect(patchStatus).toBeLessThan(500);
+});
+
+test("entering a yyyy-mm date auto-creates the month rooted in the year", async ({
+  page,
+  context,
+}) => {
+  await loginAndGoToApp(page, context, "user-date-month");
+
+  await addEvent(page, "Holiday", { date: "2018-05" });
+
+  await expect(eventList(page).getByText("2018-05", { exact: true })).toBeVisible();
+  await expect(eventList(page).getByText("2018", { exact: true })).toBeVisible();
+
+  const monthItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^2018-05$/ }) });
+  await expect(monthItem.getByText("Took place in: 2018")).toBeVisible();
+
+  const childItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^Holiday$/ }) });
+  await expect(childItem.getByText("Took place in: 2018-05")).toBeVisible();
+});
+
+test("entering a yyyy-mm-dd date auto-creates the day, month, and year chain", async ({
+  page,
+  context,
+}) => {
+  await loginAndGoToApp(page, context, "user-date-day");
+
+  await addEvent(page, "Vacation", { date: "2019-07-15" });
+
+  await expect(eventList(page).getByText("2019-07-15", { exact: true })).toBeVisible();
+  await expect(eventList(page).getByText("2019-07", { exact: true })).toBeVisible();
+  await expect(eventList(page).getByText("2019", { exact: true })).toBeVisible();
+
+  const dayItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^2019-07-15$/ }) });
+  await expect(dayItem.getByText("Took place in: 2019-07")).toBeVisible();
+
+  const monthItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^2019-07$/ }) });
+  await expect(monthItem.getByText("Took place in: 2019")).toBeVisible();
+
+  const childItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^Vacation$/ }) });
+  await expect(childItem.getByText("Took place in: 2019-07-15")).toBeVisible();
+});
+
+test("month and day events have no Edit button in the list", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-date-no-edit");
+
+  await addEvent(page, "Trip", { date: "2020-08-22" });
+
+  const monthItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^2020-08$/ }) });
+  await expect(monthItem.getByRole("button", { name: "Edit" })).toHaveCount(0);
+  await expect(monthItem.getByRole("button", { name: "Delete" })).toBeVisible();
+
+  const dayItem = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("strong").filter({ hasText: /^2020-08-22$/ }) });
+  await expect(dayItem.getByRole("button", { name: "Edit" })).toHaveCount(0);
+  await expect(dayItem.getByRole("button", { name: "Delete" })).toBeVisible();
+});
+
+test("API rejects PATCH on month and day events", async ({ page, context }) => {
+  await loginAndGoToApp(page, context, "user-date-patch-rejected");
+
+  await addEvent(page, "Conference", { date: "2021-09-30" });
+
+  const dateEvents = await page.evaluate(async () => {
+    const res = await fetch("/api/events");
+    const events = (await res.json()) as { id: number; title: string }[];
+    return {
+      month: events.find((e) => e.title === "2021-09"),
+      day: events.find((e) => e.title === "2021-09-30"),
+    };
+  });
+  expect(dateEvents.month).toBeTruthy();
+  expect(dateEvents.day).toBeTruthy();
+
+  const patchStatuses = await page.evaluate(
+    async ([monthId, dayId]) => {
+      async function patch(id: number) {
+        const res = await fetch(`/api/events/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: "changed" }),
+        });
+        return res.status;
+      }
+      return [await patch(monthId), await patch(dayId)];
+    },
+    [dateEvents.month!.id, dateEvents.day!.id],
+  );
+
+  for (const status of patchStatuses) {
+    expect(status).toBeGreaterThanOrEqual(400);
+    expect(status).toBeLessThan(500);
+  }
 });

@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from "vue";
 
 type View = "auth" | "passphrase" | "migrate" | "app";
 type AppTab = "list" | "graph";
-type EventKind = "event" | "year";
+type EventKind = "event" | "date";
 type EventRow = {
   id: number;
   title: string;
@@ -12,7 +12,52 @@ type EventRow = {
   root_event_ids: number[];
 };
 
-const YEAR_RE = /^\d{4}$/;
+const DATE_RE = /^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$/;
+
+type ParsedDate = { year: string; month?: string; day?: string };
+
+function parseDate(date: string): ParsedDate | null {
+  const m = DATE_RE.exec(date);
+  if (!m) return null;
+  return {
+    year: m[1]!,
+    ...(m[2] !== undefined ? { month: m[2] } : {}),
+    ...(m[3] !== undefined ? { day: m[3] } : {}),
+  };
+}
+
+function isValidDate(date: string): boolean {
+  const p = parseDate(date);
+  if (!p) return false;
+  if (!p.month) return true;
+  const month = Number(p.month);
+  if (month < 1 || month > 12) return false;
+  if (!p.day) return true;
+  const year = Number(p.year);
+  const day = Number(p.day);
+  if (day < 1) return false;
+  const dt = new Date(year, month - 1, day);
+  return dt.getFullYear() === year && dt.getMonth() === month - 1 && dt.getDate() === day;
+}
+
+function dateErrorMessage(date: string): string | null {
+  if (date === "") return null;
+  const p = parseDate(date);
+  if (!p) return "Use yyyy, yyyy-mm, or yyyy-mm-dd";
+  if (p.month) {
+    const month = Number(p.month);
+    if (month < 1 || month > 12) return "Month must be between 01 and 12";
+  }
+  if (p.day) {
+    const year = Number(p.year);
+    const month = Number(p.month);
+    const day = Number(p.day);
+    const dt = new Date(year, month - 1, day);
+    if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day)
+      return `Day ${p.day} is not valid for ${p.year}-${p.month!.padStart(2, "0")}`;
+  }
+  return null;
+}
 
 const NODE_W = 120;
 const NODE_H = 36;
@@ -30,11 +75,12 @@ const events = ref<EventRow[]>([]);
 const newTitle = ref("");
 const newDescription = ref("");
 const newRootEventId = ref<number | null>(null);
-const newYear = ref("");
+const newDate = ref("");
 const editingId = ref<number | null>(null);
 
-const isYearValid = computed(() => newYear.value === "" || YEAR_RE.test(newYear.value));
-const canSubmit = computed(() => newTitle.value.trim() !== "" && isYearValid.value);
+const isDateValid = computed(() => newDate.value === "" || isValidDate(newDate.value));
+const dateError = computed(() => dateErrorMessage(newDate.value));
+const canSubmit = computed(() => newTitle.value.trim() !== "" && isDateValid.value);
 
 async function loadEvents() {
   const res = await fetch("/api/events");
@@ -45,7 +91,7 @@ function resetForm() {
   newTitle.value = "";
   newDescription.value = "";
   newRootEventId.value = null;
-  newYear.value = "";
+  newDate.value = "";
   editingId.value = null;
 }
 
@@ -60,7 +106,7 @@ function buildPayload() {
     title: newTitle.value,
     description: newDescription.value || null,
     root_event_ids: newRootEventId.value !== null ? [newRootEventId.value] : [],
-    year: newYear.value || undefined,
+    date: newDate.value || undefined,
   };
 }
 
@@ -79,20 +125,20 @@ function eventById(id: number): EventRow | null {
 }
 
 function startEdit(event: EventRow) {
-  if (event.kind === "year") return;
+  if (event.kind === "date") return;
   editingId.value = event.id;
   newTitle.value = event.title;
   newDescription.value = event.description ?? "";
-  let yearTitle: string | null = null;
-  let nonYearRoot: number | null = null;
+  let dateTitle: string | null = null;
+  let nonDateRoot: number | null = null;
   for (const rid of event.root_event_ids) {
     const root = eventById(rid);
     if (!root) continue;
-    if (root.kind === "year") yearTitle = root.title;
-    else if (nonYearRoot === null) nonYearRoot = rid;
+    if (root.kind === "date") dateTitle = root.title;
+    else if (nonDateRoot === null) nonDateRoot = rid;
   }
-  newRootEventId.value = nonYearRoot;
-  newYear.value = yearTitle ?? "";
+  newRootEventId.value = nonDateRoot;
+  newDate.value = dateTitle ?? "";
 }
 
 function startEditById(id: number) {
@@ -121,14 +167,14 @@ async function deleteEvent(id: number) {
   await loadEvents();
 }
 
-type RootLabel = { kind: "year" | "while"; title: string };
+type RootLabel = { kind: "date" | "while"; title: string };
 
 function rootLabels(event: EventRow): RootLabel[] {
   const labels: RootLabel[] = [];
   for (const rid of event.root_event_ids) {
     const root = eventById(rid);
     if (!root) continue;
-    labels.push({ kind: root.kind === "year" ? "year" : "while", title: root.title });
+    labels.push({ kind: root.kind === "date" ? "date" : "while", title: root.title });
   }
   return labels;
 }
@@ -136,7 +182,7 @@ function rootLabels(event: EventRow): RootLabel[] {
 const rootSelectId = computed(() => newRootEventId.value ?? "");
 
 const rootOptions = computed(() =>
-  events.value.filter((e) => e.id !== editingId.value && e.kind !== "year"),
+  events.value.filter((e) => e.id !== editingId.value && e.kind !== "date"),
 );
 
 type GraphNode = { id: number; title: string; kind: EventKind; x: number; y: number };
@@ -365,19 +411,19 @@ async function logout() {
               <option v-for="e in rootOptions" :key="e.id" :value="e.id">{{ e.title }}</option>
             </select>
           </div>
-          <div class="field year-field">
-            <label for="new-year">Took place in</label>
+          <div class="field date-field">
+            <label for="new-date">Took place in</label>
             <input
-              id="new-year"
-              v-model="newYear"
+              id="new-date"
+              v-model="newDate"
               type="text"
-              inputmode="numeric"
-              pattern="\d{4}"
-              maxlength="4"
-              size="4"
-              placeholder="yyyy"
-              class="year-input"
+              pattern="\d{4}(-\d{1,2}(-\d{1,2})?)?"
+              maxlength="10"
+              size="10"
+              placeholder="yyyy-mm-dd"
+              class="date-input"
             />
+            <p v-if="dateError" data-testid="date-error" class="error">{{ dateError }}</p>
           </div>
         </div>
         <div class="actions">
@@ -418,7 +464,7 @@ async function logout() {
           <div class="event-header">
             <strong>{{ event.title }}</strong>
             <div class="event-actions">
-              <button v-if="event.kind !== 'year'" class="btn-secondary" @click="startEdit(event)">
+              <button v-if="event.kind !== 'date'" class="btn-secondary" @click="startEdit(event)">
                 Edit
               </button>
               <button class="btn-secondary" @click="deleteEvent(event.id)">Delete</button>
@@ -430,7 +476,7 @@ async function logout() {
             :key="`${label.kind}-${label.title}`"
             class="event-root"
           >
-            {{ label.kind === "year" ? "Took place in" : "Took place while" }}: {{ label.title }}
+            {{ label.kind === "date" ? "Took place in" : "Took place while" }}: {{ label.title }}
           </p>
         </li>
       </ul>
@@ -460,7 +506,7 @@ async function logout() {
             class="graph-node-group"
           >
             <g
-              :class="node.kind === 'year' ? 'graph-node-year' : 'graph-node-clickable'"
+              :class="node.kind === 'date' ? 'graph-node-date' : 'graph-node-clickable'"
               @click="startEditById(node.id)"
             >
               <rect :width="NODE_W" :height="NODE_H" rx="4" class="graph-node" />
@@ -699,12 +745,12 @@ button {
   min-width: 0;
 }
 
-.year-field {
+.date-field {
   flex: 0 0 auto;
 }
 
-.year-input {
-  width: calc(4ch + 1.5rem);
+.date-input {
+  width: calc(10ch + 1.5rem);
 }
 
 textarea {
@@ -798,7 +844,7 @@ select {
   cursor: pointer;
 }
 
-.graph-node-year {
+.graph-node-date {
   cursor: default;
 }
 
