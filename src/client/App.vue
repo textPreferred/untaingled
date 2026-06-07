@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
 
-type View = "auth" | "passphrase" | "migrate" | "app";
+type View = "auth" | "passphrase" | "migrate" | "app" | "change-passphrase";
 type AppTab = "list" | "graph";
 type EventKind = "event" | "date";
 type EventRow = {
@@ -303,14 +303,68 @@ async function logout() {
   await fetch("/api/logout", { method: "POST" });
   globalThis.location.href = "/";
 }
+
+const currentPassphrase = ref("");
+const newPassphrase = ref("");
+const confirmNewPassphrase = ref("");
+const passphraseCopied = ref(false);
+const changeError = ref("");
+
+const newPassphrasesMatch = computed(
+  () => newPassphrase.value !== "" && newPassphrase.value === confirmNewPassphrase.value,
+);
+const canCopyNewPassphrase = computed(() => newPassphrasesMatch.value);
+const canApplyChange = computed(
+  () => newPassphrasesMatch.value && currentPassphrase.value !== "" && passphraseCopied.value,
+);
+
+function openChangePassphrase() {
+  currentPassphrase.value = "";
+  newPassphrase.value = "";
+  confirmNewPassphrase.value = "";
+  passphraseCopied.value = false;
+  changeError.value = "";
+  accountOpen.value = false;
+  view.value = "change-passphrase";
+}
+
+async function copyNewPassphrase() {
+  if (!canCopyNewPassphrase.value) return;
+  await navigator.clipboard.writeText(newPassphrase.value);
+  passphraseCopied.value = true;
+}
+
+async function applyPassphraseChange() {
+  if (!canApplyChange.value) return;
+  changeError.value = "";
+  const res = await fetch("/api/auth/change-passphrase", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      currentPassphrase: currentPassphrase.value,
+      newPassphrase: newPassphrase.value,
+    }),
+  });
+  if (res.ok) {
+    view.value = "app";
+  } else {
+    const data = (await res.json()) as { error: string };
+    changeError.value = data.error;
+  }
+}
+
+function cancelPassphraseChange() {
+  view.value = "app";
+}
 </script>
 
 <template>
-  <header v-if="view === 'app'" class="app-header">
+  <header v-if="view === 'app' || view === 'change-passphrase'" class="app-header">
     <span class="app-header-title">Untaingled</span>
     <div class="account-menu">
       <button class="btn-secondary" @click="accountOpen = !accountOpen">Account</button>
       <div v-if="accountOpen" class="account-dropdown">
+        <button class="btn-secondary" @click="openChangePassphrase">Change passphrase</button>
         <button class="btn-secondary" @click="logout">Log out</button>
       </div>
     </div>
@@ -374,6 +428,53 @@ async function logout() {
       <p v-if="error" class="error">{{ error }}</p>
       <div class="actions">
         <button class="btn-primary" @click="submitPassphrase(true)">Migrate</button>
+      </div>
+    </div>
+  </main>
+
+  <main v-else-if="view === 'change-passphrase'">
+    <div class="card">
+      <h1>Change passphrase</h1>
+      <p class="intro">
+        This is <strong>irreversible</strong>. If you lose the new passphrase, your data is gone for
+        good. Copy it before applying — this is your last chance to save it.
+      </p>
+      <div class="field">
+        <label for="current-passphrase">Current passphrase</label>
+        <input
+          id="current-passphrase"
+          v-model="currentPassphrase"
+          type="password"
+          autocomplete="current-password"
+        />
+      </div>
+      <div class="field">
+        <label for="new-passphrase">New passphrase</label>
+        <input
+          id="new-passphrase"
+          v-model="newPassphrase"
+          type="password"
+          autocomplete="new-password"
+        />
+      </div>
+      <div class="field">
+        <label for="confirm-new-passphrase">Confirm new passphrase</label>
+        <input
+          id="confirm-new-passphrase"
+          v-model="confirmNewPassphrase"
+          type="password"
+          autocomplete="new-password"
+        />
+      </div>
+      <p v-if="changeError" class="error">{{ changeError }}</p>
+      <div class="actions">
+        <button class="btn-secondary" @click="cancelPassphraseChange">Cancel</button>
+        <button class="btn-secondary" :disabled="!canCopyNewPassphrase" @click="copyNewPassphrase">
+          {{ passphraseCopied ? "Copied" : "Copy passphrase" }}
+        </button>
+        <button class="btn-primary" :disabled="!canApplyChange" @click="applyPassphraseChange">
+          Apply change
+        </button>
       </div>
     </div>
   </main>

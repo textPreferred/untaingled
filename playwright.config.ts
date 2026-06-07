@@ -7,6 +7,7 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3000",
     httpCredentials: { username: "test", password: "test" },
+    permissions: ["clipboard-read", "clipboard-write"],
   },
   webServer: {
     command:

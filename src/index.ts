@@ -308,6 +308,37 @@ app.post("/api/auth/passphrase", async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Change passphrase ─────────────────────────────────────────────────────────
+
+app.post("/api/auth/change-passphrase", async (c) => {
+  const session = requireSession(c);
+  if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+  const { currentPassphrase, newPassphrase } = await c.req.json<{
+    currentPassphrase?: string;
+    newPassphrase?: string;
+  }>();
+  if (!currentPassphrase || !newPassphrase)
+    return c.json({ error: "Both passphrases required" }, 400);
+
+  const user = (await db("users").where({ id: session.userId }).first()) as UserRow | undefined;
+  if (!user) return c.json({ error: "User not found" }, 404);
+
+  try {
+    decryptDbKey(user.encrypted_db_key, deriveKey(currentPassphrase, user.key_salt));
+  } catch {
+    return c.json({ error: "Wrong passphrase" }, 401);
+  }
+
+  const newSalt = generateSalt();
+  const newEncryptedDbKey = encryptDbKey(session.dbKey, deriveKey(newPassphrase, newSalt));
+  await db("users")
+    .where({ id: session.userId })
+    .update({ encrypted_db_key: newEncryptedDbKey, key_salt: newSalt });
+
+  return c.body(null, 204);
+});
+
 // ── Logout ────────────────────────────────────────────────────────────────────
 
 app.post("/api/logout", (c) => {
