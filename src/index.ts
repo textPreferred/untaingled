@@ -24,6 +24,11 @@ await db.migrate.latest();
 // ── Auth0 / OIDC setup ────────────────────────────────────────────────────────
 
 const IS_TEST = process.env["NODE_ENV"] === "test";
+const IS_PROD = process.env["NODE_ENV"] === "production";
+
+// Shared cookie hardening: HttpOnly + SameSite=Lax always; Secure in prod
+// (omitted in dev/test so cookies work over plain http://localhost).
+const SESSION_COOKIE = { httpOnly: true, path: "/", sameSite: "Lax", secure: IS_PROD } as const;
 
 const AUTH0_DOMAIN = process.env["AUTH0_DOMAIN"] ?? "";
 const AUTH0_CLIENT_ID = process.env["AUTH0_CLIENT_ID"] ?? "";
@@ -63,6 +68,28 @@ const basicAuthPassword = process.env["BASIC_AUTH_PASSWORD"];
 if (basicAuthUser && basicAuthPassword) {
   app.use("/*", basicAuth(basicAuthUser, basicAuthPassword));
 }
+
+// ── CSRF guard ──────────────────────────────────────────────────────────────
+// Browsers send Origin on cross-site state-changing requests; reject those
+// whose Origin host doesn't match the request Host. Header-less clients
+// (curl, server-to-server) aren't a CSRF vector, so they pass. Pairs with the
+// SameSite=Lax session cookie as defense-in-depth.
+app.use("/api/*", async (c, next) => {
+  const method = c.req.method;
+  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+    const origin = c.req.header("Origin");
+    if (origin !== undefined) {
+      let originHost: string;
+      try {
+        originHost = new URL(origin).host;
+      } catch {
+        return c.json({ error: "Invalid origin" }, 403);
+      }
+      if (originHost !== c.req.header("Host")) return c.json({ error: "Invalid origin" }, 403);
+    }
+  }
+  return next();
+});
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -153,7 +180,7 @@ if (IS_TEST) {
         .returning(["id", "auth0_sub", "password_hash", "encrypted_db_key", "key_salt"]);
       user = created as UserRow;
       const sessionId = createSession(user!.id, dbKey);
-      setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
+      setCookie(c, "session", sessionId, SESSION_COOKIE);
       return c.json({ ok: true });
     }
 
@@ -164,7 +191,7 @@ if (IS_TEST) {
       return c.json({ error: "Wrong passphrase" }, 401);
     }
     const sessionId = createSession(user.id, dbKey);
-    setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
+    setCookie(c, "session", sessionId, SESSION_COOKIE);
     return c.json({ ok: true });
   });
 }
@@ -240,7 +267,7 @@ app.get("/auth/callback", async (c) => {
   }
 
   const isMigration = pendingPassphrase.get(tempToken)?.needsMigration ?? false;
-  setCookie(c, "pending_auth", tempToken, { httpOnly: true, path: "/", maxAge: 600 });
+  setCookie(c, "pending_auth", tempToken, { ...SESSION_COOKIE, maxAge: 600 });
   return c.redirect(isMigration ? "/auth/passphrase?migrate=1" : "/auth/passphrase", 302);
 });
 
@@ -313,7 +340,7 @@ app.post("/api/auth/passphrase", async (c) => {
   deleteCookie(c, "pending_auth", { path: "/" });
 
   const sessionId = createSession(userId, dbKey);
-  setCookie(c, "session", sessionId, { httpOnly: true, path: "/" });
+  setCookie(c, "session", sessionId, SESSION_COOKIE);
   return c.json({ ok: true });
 });
 
