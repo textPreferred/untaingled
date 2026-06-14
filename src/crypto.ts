@@ -1,4 +1,4 @@
-import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
+import { randomBytes, createCipheriv, createDecipheriv, createHmac, scryptSync } from "node:crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const KEY_LENGTH = 32;
@@ -63,4 +63,52 @@ export function decryptDbKey(encryptedDbKey: string, derivedKey: Buffer): Buffer
   const decipher = createDecipheriv(ALGORITHM, derivedKey, iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+}
+
+/**
+ * Encrypts a UTF-8 string with AES-256-GCM under the given key.
+ * Output is hex-encoded `iv | tag | ciphertext`. A random IV makes the
+ * ciphertext non-deterministic, so identical plaintexts differ on disk.
+ *
+ * @param plaintext The string to encrypt.
+ * @param key A 32-byte key (the per-user dbKey).
+ * @returns The encrypted value as a hex string.
+ */
+export function encryptString(plaintext: string, key: Buffer): string {
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(ALGORITHM, key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, encrypted]).toString("hex");
+}
+
+/**
+ * Decrypts a string produced by {@link encryptString}.
+ *
+ * @param ciphertext The hex-encoded `iv | tag | ciphertext`.
+ * @param key The 32-byte key used to encrypt.
+ * @returns The decrypted UTF-8 string. Throws if the tag fails to verify.
+ */
+export function decryptString(ciphertext: string, key: Buffer): string {
+  const buf = Buffer.from(ciphertext, "hex");
+  const iv = buf.subarray(0, IV_LENGTH);
+  const tag = buf.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH);
+  const encrypted = buf.subarray(IV_LENGTH + TAG_LENGTH);
+  const decipher = createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+}
+
+/**
+ * Derives a deterministic, per-user lookup token for a value via HMAC-SHA256.
+ * Used to dedup date events without storing their plaintext: the same value
+ * under the same key always yields the same token, but the token reveals
+ * nothing without the key.
+ *
+ * @param value The value to tokenize (e.g. a normalized date string).
+ * @param key The per-user dbKey.
+ * @returns The lookup token as a hex string.
+ */
+export function lookupToken(value: string, key: Buffer): string {
+  return createHmac("sha256", key).update(value).digest("hex");
 }

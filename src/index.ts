@@ -6,7 +6,16 @@ import knex from "knex";
 import * as oidc from "openid-client";
 import knexConfig from "./knexfile";
 import { createSession, getSession, deleteSession } from "./sessions";
-import { generateSalt, deriveKey, generateDbKey, encryptDbKey, decryptDbKey } from "./crypto";
+import {
+  generateSalt,
+  deriveKey,
+  generateDbKey,
+  encryptDbKey,
+  decryptDbKey,
+  encryptString,
+  decryptString,
+  lookupToken,
+} from "./crypto";
 import { basicAuth } from "./basicAuth";
 
 const db = knex(knexConfig);
@@ -358,25 +367,45 @@ app.use("/api/*", async (c, next) => {
 
 // ── Events ────────────────────────────────────────────────────────────────────
 
-async function findOrCreateDateEvent(date: string, userId: number): Promise<number> {
+// Stored rows hold encrypted title/description; decryptEvent turns one into
+// the plaintext API shape using the requester's per-user dbKey.
+type StoredEventRow = { id: number; title: string; description: string | null; kind: EventKind };
+
+function decryptEvent(row: StoredEventRow, dbKey: Buffer): EventRow {
+  return {
+    id: row.id,
+    title: decryptString(row.title, dbKey),
+    description: row.description === null ? null : decryptString(row.description, dbKey),
+    kind: row.kind,
+  };
+}
+
+async function findOrCreateDateEvent(date: string, userId: number, dbKey: Buffer): Promise<number> {
+  const date_lookup = lookupToken(date, dbKey);
   const existing = await db("events")
-    .where({ title: date, kind: "date", user_id: userId })
-    .first<EventRow>();
+    .where({ kind: "date", user_id: userId, date_lookup })
+    .first<{ id: number }>();
   if (existing) return existing.id;
   const [created] = await db("events")
-    .insert({ title: date, description: null, kind: "date", user_id: userId })
-    .returning<EventRow[]>(["id", "title", "description", "kind"]);
+    .insert({
+      title: encryptString(date, dbKey),
+      description: null,
+      kind: "date",
+      user_id: userId,
+      date_lookup,
+    })
+    .returning<{ id: number }[]>(["id"]);
   if (!created) throw new Error("Failed to create date event");
   const parents = dateParents(date);
   if (parents.length > 0) {
-    const parentId = await findOrCreateDateEvent(parents[0]!, userId);
+    const parentId = await findOrCreateDateEvent(parents[0]!, userId, dbKey);
     await setEventRoots(created.id, [parentId], userId);
   }
   return created.id;
 }
 
-async function loadEventsWithRoots(userId: number): Promise<EventWithRoots[]> {
-  const events = await db("events").where({ user_id: userId }).select<EventRow[]>();
+async function loadEventsWithRoots(userId: number, dbKey: Buffer): Promise<EventWithRoots[]> {
+  const events = await db("events").where({ user_id: userId }).select<StoredEventRow[]>();
   const eventIds = events.map((e) => e.id);
   const roots =
     eventIds.length === 0
@@ -389,16 +418,23 @@ async function loadEventsWithRoots(userId: number): Promise<EventWithRoots[]> {
     if (!rootsByEvent.has(r.event_id)) rootsByEvent.set(r.event_id, []);
     rootsByEvent.get(r.event_id)!.push(r.root_event_id);
   }
-  return events.map((e) => ({ ...e, root_event_ids: rootsByEvent.get(e.id) ?? [] }));
+  return events.map((e) => ({
+    ...decryptEvent(e, dbKey),
+    root_event_ids: rootsByEvent.get(e.id) ?? [],
+  }));
 }
 
-async function getEventWithRoots(id: number, userId: number): Promise<EventWithRoots | null> {
-  const event = await db("events").where({ id, user_id: userId }).first<EventRow>();
+async function getEventWithRoots(
+  id: number,
+  userId: number,
+  dbKey: Buffer,
+): Promise<EventWithRoots | null> {
+  const event = await db("events").where({ id, user_id: userId }).first<StoredEventRow>();
   if (!event) return null;
   const roots = await db("event_roots")
     .where({ event_id: id })
     .select<{ root_event_id: number }[]>("root_event_id");
-  return { ...event, root_event_ids: roots.map((r) => r.root_event_id) };
+  return { ...decryptEvent(event, dbKey), root_event_ids: roots.map((r) => r.root_event_id) };
 }
 
 // Keep only root ids that the user actually owns — blocks cross-user links (IDOR via roots).
@@ -423,12 +459,12 @@ async function setEventRoots(eventId: number, rootIds: number[], userId: number)
 }
 
 app.get("/api/events", async (c) => {
-  const { userId } = requireSession(c)!;
-  return c.json(await loadEventsWithRoots(userId));
+  const { userId, dbKey } = requireSession(c)!;
+  return c.json(await loadEventsWithRoots(userId, dbKey));
 });
 
 app.post("/api/events", async (c) => {
-  const { userId } = requireSession(c)!;
+  const { userId, dbKey } = requireSession(c)!;
   const body = await c.req.json<{
     title?: string;
     description?: string;
@@ -441,26 +477,26 @@ app.post("/api/events", async (c) => {
 
   const [event] = await db("events")
     .insert({
-      title: body.title.trim(),
-      description: body.description ?? null,
+      title: encryptString(body.title.trim(), dbKey),
+      description: body.description == null ? null : encryptString(body.description, dbKey),
       kind: "event",
       user_id: userId,
     })
-    .returning<EventRow[]>(["id", "title", "description", "kind"]);
+    .returning<{ id: number }[]>(["id"]);
   if (!event) return c.json({ error: "Failed to create event" }, 500);
 
   const rootIds = [...(body.root_event_ids ?? [])];
-  if (body.date) rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date), userId));
+  if (body.date) rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date), userId, dbKey));
   await setEventRoots(event.id, rootIds, userId);
 
-  const result = await getEventWithRoots(event.id, userId);
+  const result = await getEventWithRoots(event.id, userId, dbKey);
   return c.json(result, 201);
 });
 
 app.patch("/api/events/:id", async (c) => {
-  const { userId } = requireSession(c)!;
+  const { userId, dbKey } = requireSession(c)!;
   const id = Number(c.req.param("id"));
-  const existing = await db("events").where({ id, user_id: userId }).first<EventRow>();
+  const existing = await db("events").where({ id, user_id: userId }).first<StoredEventRow>();
   if (!existing) return c.json({ error: "Not found" }, 404);
   if (existing.kind === "date") return c.json({ error: "Date events cannot be edited" }, 400);
   const body = await c.req.json<{
@@ -477,17 +513,20 @@ app.patch("/api/events/:id", async (c) => {
   await db("events")
     .where({ id, user_id: userId })
     .update({
-      ...(body.title !== undefined ? { title: body.title.trim() } : {}),
-      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.title !== undefined ? { title: encryptString(body.title.trim(), dbKey) } : {}),
+      ...(body.description !== undefined
+        ? { description: body.description == null ? null : encryptString(body.description, dbKey) }
+        : {}),
     });
 
   if (body.root_event_ids !== undefined || body.date !== undefined) {
     const rootIds = [...(body.root_event_ids ?? [])];
-    if (body.date) rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date), userId));
+    if (body.date)
+      rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date), userId, dbKey));
     await setEventRoots(id, rootIds, userId);
   }
 
-  return c.json(await getEventWithRoots(id, userId));
+  return c.json(await getEventWithRoots(id, userId, dbKey));
 });
 
 app.delete("/api/events/:id", async (c) => {
