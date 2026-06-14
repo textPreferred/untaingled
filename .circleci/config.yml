@@ -30,12 +30,12 @@ jobs:
       - install_bun
       - restore_cache:
           keys:
-            - bun-deps-v1-{{ checksum "bun.lockb" }}
+            - bun-deps-v1-{{ checksum "bun.lock" }}
       - run:
           name: Install dependencies
           command: bun install --frozen-lockfile --ignore-scripts
       - save_cache:
-          key: bun-deps-v1-{{ checksum "bun.lockb" }}
+          key: bun-deps-v1-{{ checksum "bun.lock" }}
           paths:
             - node_modules
       - persist_to_workspace:
