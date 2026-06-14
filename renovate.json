@@ -3,5 +3,7 @@
   "extends": ["config:recommended"],
   "automerge": true,
   "automergeType": "pr",
-  "automergeStrategy": "squash"
+  "automergeStrategy": "squash",
+  "platformAutomerge": true,
+  "rebaseWhen": "conflicted"
 }
