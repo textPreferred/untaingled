@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Untangling personal histories",
   "license": "MIT",
+  "packageManager": "bun@1.3.6",
   "scripts": {
     "build": "vite build && tsc && tsc -p tsconfig.migrations.json && tsc -p tsconfig.client.json --noEmit",
     "dev": "vite build && sh scripts/dev.sh",
