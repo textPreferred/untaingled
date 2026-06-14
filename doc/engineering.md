@@ -3,3 +3,6 @@
 - Prefer simple over clever.
 - Do not abbreviate names.
 - Use bun's `bun.lock` as the only lockfile. Do not commit foreign lockfiles (pnpm/npm/yarn) — a stray one misleads Renovate into updating it instead of `bun.lock`, breaking CI.
+- Do little refactorings as we go along, leaving code better than before (Boy Scout Rule).
+- Prefer composition over inheritance. Avoid inheritance.
+- Don't mix abstractions in functions. A function either consists of named function calls, or runs lower level operations. Never both.
