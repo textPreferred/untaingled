@@ -149,3 +149,6 @@ vite.config.ts.timestamp-*
 # Playwright
 test-results/
 playwright-report/
+
+# Claude Code local settings (tool permission overrides — not project config)
+.claude/settings.local.json
