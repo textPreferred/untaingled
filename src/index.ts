@@ -39,8 +39,12 @@ const oidcConfig = IS_TEST
   ? null
   : await oidc.discovery(new URL(`https://${AUTH0_DOMAIN}`), AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET);
 
+// Half-finished logins must not accumulate forever, so every pending entry
+// carries an expiry and stale ones are swept periodically.
+const PENDING_TTL_MS = 10 * 60 * 1000; // 10 min (matches the pending_auth cookie)
+
 // Pending OIDC states: state → { codeVerifier, nonce }
-const pendingAuth = new Map<string, { codeVerifier: string; nonce: string }>();
+const pendingAuth = new Map<string, { codeVerifier: string; nonce: string; expiresAt: number }>();
 
 // Pending passphrase sessions: tempToken → { auth0Sub, isNewUser, encryptedDbKey?, keySalt?, passwordHash? }
 type PendingPassphrase = {
@@ -52,12 +56,33 @@ type PendingPassphrase = {
   needsMigration?: boolean;
   passwordHash?: string | undefined;
   legacySalt?: string | undefined;
+  expiresAt: number;
 };
 const pendingPassphrase = new Map<string, PendingPassphrase>();
 
 function makeTempToken(): string {
   return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex");
 }
+
+// Reads an entry only if it hasn't expired, purging it on access either way.
+function takeFresh<T extends { expiresAt: number }>(
+  map: Map<string, T>,
+  key: string,
+): T | undefined {
+  const entry = map.get(key);
+  if (!entry) return undefined;
+  if (entry.expiresAt <= Date.now()) {
+    map.delete(key);
+    return undefined;
+  }
+  return entry;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of pendingAuth) if (v.expiresAt <= now) pendingAuth.delete(k);
+  for (const [k, v] of pendingPassphrase) if (v.expiresAt <= now) pendingPassphrase.delete(k);
+}, PENDING_TTL_MS).unref();
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
@@ -204,7 +229,7 @@ app.get("/auth/login", async (c) => {
   const state = oidc.randomState();
   const nonce = oidc.randomNonce();
 
-  pendingAuth.set(state, { codeVerifier, nonce });
+  pendingAuth.set(state, { codeVerifier, nonce, expiresAt: Date.now() + PENDING_TTL_MS });
 
   const url = oidc.buildAuthorizationUrl(oidcConfig!, {
     redirect_uri: AUTH0_CALLBACK_URL,
@@ -223,7 +248,7 @@ app.get("/auth/login", async (c) => {
 
 app.get("/auth/callback", async (c) => {
   const state = c.req.query("state") ?? "";
-  const pending = pendingAuth.get(state);
+  const pending = takeFresh(pendingAuth, state);
   if (!pending) return c.text("Invalid state", 400);
   pendingAuth.delete(state);
 
@@ -243,6 +268,7 @@ app.get("/auth/callback", async (c) => {
   const user = (await db("users").where({ auth0_sub: auth0Sub }).first()) as UserRow | undefined;
 
   const tempToken = makeTempToken();
+  const expiresAt = Date.now() + PENDING_TTL_MS;
 
   if (!user) {
     const hasLegacyUsers = await db("users")
@@ -251,10 +277,15 @@ app.get("/auth/callback", async (c) => {
       .first();
     if (hasLegacyUsers) {
       // Might be a legacy user — ask them to identify themselves
-      pendingPassphrase.set(tempToken, { auth0Sub, isNewUser: false, needsMigration: true });
+      pendingPassphrase.set(tempToken, {
+        auth0Sub,
+        isNewUser: false,
+        needsMigration: true,
+        expiresAt,
+      });
     } else {
       // Brand new user
-      pendingPassphrase.set(tempToken, { auth0Sub, isNewUser: true });
+      pendingPassphrase.set(tempToken, { auth0Sub, isNewUser: true, expiresAt });
     }
   } else {
     // Returning Auth0 user — needs passphrase to decrypt dbKey
@@ -263,6 +294,7 @@ app.get("/auth/callback", async (c) => {
       isNewUser: false,
       encryptedDbKey: user.encrypted_db_key,
       keySalt: user.key_salt,
+      expiresAt,
     });
   }
 
@@ -277,7 +309,7 @@ app.post("/api/auth/passphrase", async (c) => {
   const tempToken = getCookie(c, "pending_auth");
   if (!tempToken) return c.json({ error: "Session expired" }, 401);
 
-  const pending = pendingPassphrase.get(tempToken);
+  const pending = takeFresh(pendingPassphrase, tempToken);
   if (!pending) return c.json({ error: "Session expired" }, 401);
 
   const { passphrase, username: legacyUsername } = await c.req.json<{
