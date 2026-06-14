@@ -41,6 +41,11 @@ build/Release
 node_modules/
 jspm_packages/
 
+# Non-bun lockfiles (this project uses bun; a stray lockfile misleads Renovate/CI)
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
