@@ -358,24 +358,32 @@ app.use("/api/*", async (c, next) => {
 
 // ── Events ────────────────────────────────────────────────────────────────────
 
-async function findOrCreateDateEvent(date: string): Promise<number> {
-  const existing = await db("events").where({ title: date, kind: "date" }).first<EventRow>();
+async function findOrCreateDateEvent(date: string, userId: number): Promise<number> {
+  const existing = await db("events")
+    .where({ title: date, kind: "date", user_id: userId })
+    .first<EventRow>();
   if (existing) return existing.id;
   const [created] = await db("events")
-    .insert({ title: date, description: null, kind: "date" })
+    .insert({ title: date, description: null, kind: "date", user_id: userId })
     .returning<EventRow[]>(["id", "title", "description", "kind"]);
   if (!created) throw new Error("Failed to create date event");
   const parents = dateParents(date);
   if (parents.length > 0) {
-    const parentId = await findOrCreateDateEvent(parents[0]!);
-    await setEventRoots(created.id, [parentId]);
+    const parentId = await findOrCreateDateEvent(parents[0]!, userId);
+    await setEventRoots(created.id, [parentId], userId);
   }
   return created.id;
 }
 
-async function loadEventsWithRoots(): Promise<EventWithRoots[]> {
-  const events = await db("events").select<EventRow[]>();
-  const roots = await db("event_roots").select<{ event_id: number; root_event_id: number }[]>();
+async function loadEventsWithRoots(userId: number): Promise<EventWithRoots[]> {
+  const events = await db("events").where({ user_id: userId }).select<EventRow[]>();
+  const eventIds = events.map((e) => e.id);
+  const roots =
+    eventIds.length === 0
+      ? []
+      : await db("event_roots")
+          .whereIn("event_id", eventIds)
+          .select<{ event_id: number; root_event_id: number }[]>();
   const rootsByEvent = new Map<number, number[]>();
   for (const r of roots) {
     if (!rootsByEvent.has(r.event_id)) rootsByEvent.set(r.event_id, []);
@@ -384,8 +392,8 @@ async function loadEventsWithRoots(): Promise<EventWithRoots[]> {
   return events.map((e) => ({ ...e, root_event_ids: rootsByEvent.get(e.id) ?? [] }));
 }
 
-async function getEventWithRoots(id: number): Promise<EventWithRoots | null> {
-  const event = await db("events").where({ id }).first<EventRow>();
+async function getEventWithRoots(id: number, userId: number): Promise<EventWithRoots | null> {
+  const event = await db("events").where({ id, user_id: userId }).first<EventRow>();
   if (!event) return null;
   const roots = await db("event_roots")
     .where({ event_id: id })
@@ -393,9 +401,20 @@ async function getEventWithRoots(id: number): Promise<EventWithRoots | null> {
   return { ...event, root_event_ids: roots.map((r) => r.root_event_id) };
 }
 
-async function setEventRoots(eventId: number, rootIds: number[]): Promise<void> {
+// Keep only root ids that the user actually owns — blocks cross-user links (IDOR via roots).
+async function ownedRootIds(rootIds: number[], userId: number): Promise<number[]> {
+  const unique = [...new Set(rootIds)];
+  if (unique.length === 0) return [];
+  const owned = await db("events")
+    .whereIn("id", unique)
+    .where({ user_id: userId })
+    .select<{ id: number }[]>("id");
+  return owned.map((e) => e.id);
+}
+
+async function setEventRoots(eventId: number, rootIds: number[], userId: number): Promise<void> {
   await db("event_roots").where({ event_id: eventId }).delete();
-  const unique = [...new Set(rootIds)].filter((id) => id !== eventId);
+  const unique = (await ownedRootIds(rootIds, userId)).filter((id) => id !== eventId);
   if (unique.length > 0) {
     await db("event_roots").insert(
       unique.map((root_event_id) => ({ event_id: eventId, root_event_id })),
@@ -404,10 +423,12 @@ async function setEventRoots(eventId: number, rootIds: number[]): Promise<void> 
 }
 
 app.get("/api/events", async (c) => {
-  return c.json(await loadEventsWithRoots());
+  const { userId } = requireSession(c)!;
+  return c.json(await loadEventsWithRoots(userId));
 });
 
 app.post("/api/events", async (c) => {
+  const { userId } = requireSession(c)!;
   const body = await c.req.json<{
     title?: string;
     description?: string;
@@ -419,21 +440,27 @@ app.post("/api/events", async (c) => {
     return c.json({ error: "Date must be a valid yyyy, yyyy-mm, or yyyy-mm-dd" }, 400);
 
   const [event] = await db("events")
-    .insert({ title: body.title.trim(), description: body.description ?? null, kind: "event" })
+    .insert({
+      title: body.title.trim(),
+      description: body.description ?? null,
+      kind: "event",
+      user_id: userId,
+    })
     .returning<EventRow[]>(["id", "title", "description", "kind"]);
   if (!event) return c.json({ error: "Failed to create event" }, 500);
 
   const rootIds = [...(body.root_event_ids ?? [])];
-  if (body.date) rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date)));
-  await setEventRoots(event.id, rootIds);
+  if (body.date) rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date), userId));
+  await setEventRoots(event.id, rootIds, userId);
 
-  const result = await getEventWithRoots(event.id);
+  const result = await getEventWithRoots(event.id, userId);
   return c.json(result, 201);
 });
 
 app.patch("/api/events/:id", async (c) => {
+  const { userId } = requireSession(c)!;
   const id = Number(c.req.param("id"));
-  const existing = await db("events").where({ id }).first<EventRow>();
+  const existing = await db("events").where({ id, user_id: userId }).first<EventRow>();
   if (!existing) return c.json({ error: "Not found" }, 404);
   if (existing.kind === "date") return c.json({ error: "Date events cannot be edited" }, 400);
   const body = await c.req.json<{
@@ -448,7 +475,7 @@ app.patch("/api/events/:id", async (c) => {
     return c.json({ error: "Date must be a valid yyyy, yyyy-mm, or yyyy-mm-dd" }, 400);
 
   await db("events")
-    .where({ id })
+    .where({ id, user_id: userId })
     .update({
       ...(body.title !== undefined ? { title: body.title.trim() } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
@@ -456,16 +483,17 @@ app.patch("/api/events/:id", async (c) => {
 
   if (body.root_event_ids !== undefined || body.date !== undefined) {
     const rootIds = [...(body.root_event_ids ?? [])];
-    if (body.date) rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date)));
-    await setEventRoots(id, rootIds);
+    if (body.date) rootIds.push(await findOrCreateDateEvent(normalizeDate(body.date), userId));
+    await setEventRoots(id, rootIds, userId);
   }
 
-  return c.json(await getEventWithRoots(id));
+  return c.json(await getEventWithRoots(id, userId));
 });
 
 app.delete("/api/events/:id", async (c) => {
+  const { userId } = requireSession(c)!;
   const id = Number(c.req.param("id"));
-  const deleted = await db("events").where({ id }).delete();
+  const deleted = await db("events").where({ id, user_id: userId }).delete();
   if (!deleted) return c.json({ error: "Not found" }, 404);
   return c.body(null, 204);
 });
