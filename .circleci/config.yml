@@ -201,6 +201,9 @@ workflows:
       - docker-build:
           requires:
             - install
+          filters:
+            branches:
+              only: main
       - docker-publish:
           requires:
             - lint

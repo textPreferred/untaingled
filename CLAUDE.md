@@ -27,7 +27,9 @@ Strict mode with additional checks: `noUncheckedIndexedAccess`, `exactOptionalPr
 
 ## CI pipeline
 
-Defined in [.github/ci-pipeline.yml](.github/ci-pipeline.yml). On push/PR to `main` it runs lint, format check, test, and build in parallel (after install). All must pass for Renovate auto-merge to trigger.
+Defined in [.circleci/config.yml](.circleci/config.yml) (CircleCI). On push/PR to `main`, after `install` it runs lint, format check, test, build, e2e, and a Trivy security scan in parallel; `docker-build`/`docker-publish` handle the image (publish on `main` only). All must pass for Renovate auto-merge to trigger.
+
+The old GitHub Actions pipeline is retired — see [.github/workflows/ci-pipeline.yml.disabled](.github/workflows/ci-pipeline.yml.disabled).
 
 ## Coding Preferences
 
