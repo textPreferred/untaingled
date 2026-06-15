@@ -1,13 +1,13 @@
 # Untaingled
 
-A personal-history tracker with zero-knowledge end-to-end encryption. Record events from your life, link them to dates or to other events they happened during, and explore them as a list or an interactive graph.
+A personal-history tracker with per-user encryption at rest. Record events from your life, link them to dates or to other events they happened during, and explore them as a list or an interactive graph.
 
-**The server never sees your data.** Every event title and description is encrypted client-side with a per-user key derived from your encryption passphrase before it is stored in the database. Losing the passphrase means losing the data permanently.
+**Data is encrypted at rest under a per-user key.** Every event title and description is stored encrypted with a per-user AES-GCM key, derived from your encryption passphrase via scrypt. The passphrase is sent to the server, which derives the key and encrypts/decrypts on your behalf — so this protects against a stolen database, not against the server itself. Losing the passphrase means losing the data permanently.
 
 ## Features
 
 - Auth via Auth0 (OIDC/PKCE); no passwords stored
-- Separate encryption passphrase derived via scrypt into a per-user AES-GCM key
+- Separate encryption passphrase derived via scrypt into a per-user AES-GCM key (server-side, at rest)
 - Events can be rooted in other events ("took place while …") or in auto-created date nodes (year / year-month / year-month-day)
 - List view and SVG graph view of the event tree
 - CSRF protection, `HttpOnly`/`SameSite=Lax` session cookies
@@ -23,7 +23,7 @@ A personal-history tracker with zero-knowledge end-to-end encryption. Record eve
 | Client   | [Vue 3](https://vuejs.org) + Vite            |
 | Database | PostgreSQL 17 via [Knex](https://knexjs.org) |
 | Auth     | Auth0 (OIDC) + `openid-client`               |
-| Crypto   | Web Crypto API (scrypt, AES-GCM)             |
+| Crypto   | `node:crypto` (scrypt, AES-GCM)              |
 
 ## Quick start
 

@@ -384,8 +384,8 @@ function cancelPassphraseChange() {
     <div class="card">
       <h1>Encryption passphrase</h1>
       <p class="intro">
-        Enter your encryption passphrase to unlock your data. This passphrase is never sent to the
-        server — losing it means losing access to your data permanently.
+        Enter your encryption passphrase to unlock your data. It is used to derive the key that
+        encrypts your events — losing it means losing access to your data permanently.
       </p>
       <div class="field">
         <label for="passphrase">Passphrase</label>
