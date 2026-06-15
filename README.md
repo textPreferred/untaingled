@@ -1,6 +1,6 @@
 # Untaingled
 
-[![CircleCI](https://dl.circleci.com/status-badge/img/gh/textPreferred/untaingled/tree/main.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/textPreferred/untaingled/tree/main)
+[![CircleCI](https://circleci.com/gh/textPreferred/untaingled/tree/main.svg?style=shield)](https://app.circleci.com/pipelines/gh/textPreferred/untaingled?branch=main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A personal-history tracker with per-user encryption at rest. Record events from your life, link them to dates or to other events they happened during, and explore them as a list or an interactive graph.
