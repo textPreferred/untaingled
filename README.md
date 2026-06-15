@@ -1,6 +1,8 @@
 # Untaingled
 
-[![CircleCI](https://dl.circleci.com/status-badge/img/gh/textPreferred/untaingled/tree/main.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/textPreferred/untaingled/tree/main)
+[![CircleCI](https://dl.circleci.com/status-badge/img/circleci/Lxe9UaYrRtpycb9dd3SRNi/ALowsYx2dmw89Pkj18dsSB/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/circleci/Lxe9UaYrRtpycb9dd3SRNi/ALowsYx2dmw89Pkj18dsSB/tree/main)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=textPreferred_untaingled&metric=alert_status&token=10b6bb221ff56d8c784048c02fe840178e2e4844)](https://sonarcloud.io/summary/new_code?id=textPreferred_untaingled)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A personal-history tracker with per-user encryption at rest. Record events from your life, link them to dates or to other events they happened during, and explore them as a list or an interactive graph.
