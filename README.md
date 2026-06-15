@@ -9,15 +9,14 @@ A personal-history tracker with per-user encryption at rest. Record events from 
 
 ## Features
 
-- Auth via Auth0 (OIDC/PKCE); no passwords stored
-- Separate encryption passphrase derived via scrypt into a per-user AES-GCM key (server-side, at rest)
 - Events can be rooted in other events ("took place while …") or in auto-created date nodes (year / year-month / year-month-day)
 - List view and SVG graph view of the event tree
-- CSRF protection, `HttpOnly`/`SameSite=Lax` session cookies
-- Playwright E2E test suite; CircleCI pipeline with Trivy security scan
-- Docker image published to GHCR on every merge to `main`
 
-## Stack
+## Development
+
+For details, see [DEVELOPING.md](DEVELOPING.md).
+
+### Stack
 
 | Layer    | Technology                                   |
 | -------- | -------------------------------------------- |
@@ -28,7 +27,7 @@ A personal-history tracker with per-user encryption at rest. Record events from 
 | Auth     | Auth0 (OIDC) + `openid-client`               |
 | Crypto   | `node:crypto` (scrypt, AES-GCM)              |
 
-## Quick start
+### Quick start
 
 ```bash
 git clone https://github.com/textPreferred/untaingled.git
