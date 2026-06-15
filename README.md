@@ -30,8 +30,7 @@ A personal-history tracker with per-user encryption at rest. Record events from 
 ```bash
 bun install
 cp .env.example .env   # fill in Auth0 credentials and a random SESSION_SECRET
-bun db:start           # starts a local Postgres container
-bun dev                # builds client and starts server on :3000
+bun dev                # auto-starts a local Postgres container, builds client, serves on :3000
 ```
 
 See [DEVELOPING.md](DEVELOPING.md) for the full command reference, deployment guide, and third-party service setup.
