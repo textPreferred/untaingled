@@ -13,6 +13,7 @@ executors:
   base:
     docker:
       - image: cimg/base:current
+    resource_class: small
   base_with_postgres:
     docker:
       - image: cimg/base:current
@@ -21,6 +22,7 @@ executors:
           POSTGRES_DB: untaingled_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+    resource_class: medium
 
 jobs:
   install:
@@ -97,9 +99,6 @@ jobs:
       - attach_workspace:
           at: .
       - run:
-          name: Install dependencies (with scripts for Playwright)
-          command: bun install --frozen-lockfile
-      - run:
           name: Install Playwright browsers
           command: bun x playwright@1.60.0 install --with-deps chromium
       - run:
@@ -120,6 +119,7 @@ jobs:
   security:
     docker:
       - image: aquasec/trivy:latest
+    resource_class: small
     steps:
       - checkout
       - run:
@@ -131,16 +131,23 @@ jobs:
               --format table \
               .
 
-  docker-build:
+  docker-publish:
     docker:
       - image: cimg/base:current
+    resource_class: medium
     steps:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
           name: Build image
-          command: docker build -t untaingled:$CIRCLE_SHA1 .
+          command: |
+            REPO=$(echo "$GHCR_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]')
+            docker build \
+              -t ghcr.io/${REPO}:${CIRCLE_SHA1} \
+              -t ghcr.io/${REPO}:latest \
+              -t untaingled:${CIRCLE_SHA1} \
+              .
       - run:
           name: Scan image with Trivy
           command: |
@@ -149,26 +156,14 @@ jobs:
               aquasec/trivy:latest image \
               --severity CRITICAL,HIGH \
               --exit-code 1 \
-              untaingled:$CIRCLE_SHA1
-
-  docker-publish:
-    docker:
-      - image: cimg/base:current
-    steps:
-      - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
+              untaingled:${CIRCLE_SHA1}
       - run:
           name: Log in to GitHub Container Registry
           command: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
       - run:
-          name: Build and push image
+          name: Push image
           command: |
             REPO=$(echo "$GHCR_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]')
-            docker build \
-              -t ghcr.io/${REPO}:${CIRCLE_SHA1} \
-              -t ghcr.io/${REPO}:latest \
-              .
             docker push ghcr.io/${REPO}:${CIRCLE_SHA1}
             docker push ghcr.io/${REPO}:latest
       - run:
@@ -198,12 +193,6 @@ workflows:
       - security:
           requires:
             - install
-      - docker-build:
-          requires:
-            - install
-          filters:
-            branches:
-              only: main
       - docker-publish:
           requires:
             - lint
@@ -211,7 +200,6 @@ workflows:
             - test
             - test-e2e
             - security
-            - docker-build
           filters:
             branches:
               only: main
