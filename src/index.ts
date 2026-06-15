@@ -15,6 +15,9 @@ import {
   encryptString,
   decryptString,
   lookupToken,
+  parseKdfParams,
+  serializeKdfParams,
+  CURRENT_KDF_PARAMS,
 } from "./crypto";
 import { basicAuth } from "./basicAuth";
 import { isValidDate, normalizeDate, dateParents } from "./dateValidation";
@@ -53,6 +56,7 @@ type PendingPassphrase = {
   isNewUser: boolean;
   encryptedDbKey?: string;
   keySalt?: string;
+  keyParams?: string | null;
   // migration path: legacy credentials still present
   needsMigration?: boolean;
   passwordHash?: string | undefined;
@@ -125,6 +129,7 @@ type UserRow = {
   password_hash: string | null;
   encrypted_db_key: string;
   key_salt: string;
+  kdf_params: string | null;
 };
 type EventKind = "event" | "date";
 
@@ -144,6 +149,35 @@ function requireSession(c: Context): { userId: number; dbKey: Buffer } | null {
   return getSession(sessionId) ?? null;
 }
 
+const CURRENT_KDF_PARAMS_SERIALIZED = serializeKdfParams(CURRENT_KDF_PARAMS);
+
+/**
+ * Re-wraps a user's dbKey under the current scrypt cost when their stored
+ * params are below target. Called right after a successful login, while we
+ * still hold the plaintext passphrase. The dbKey itself is unchanged, so event
+ * ciphertext is untouched — only the small key envelope is rewritten.
+ *
+ * @param userId The id of the user whose envelope may need upgrading.
+ * @param passphrase The plaintext passphrase (just verified).
+ * @param dbKey The decrypted dbKey to re-wrap.
+ * @param storedParams The user's currently stored kdf_params value.
+ */
+async function upgradeKdfParams(
+  userId: number,
+  passphrase: string,
+  dbKey: Buffer,
+  storedParams: string | null,
+): Promise<void> {
+  if (storedParams === CURRENT_KDF_PARAMS_SERIALIZED) return;
+  const newSalt = generateSalt();
+  const newEncryptedDbKey = encryptDbKey(dbKey, deriveKey(passphrase, newSalt, CURRENT_KDF_PARAMS));
+  await db("users").where({ id: userId }).update({
+    encrypted_db_key: newEncryptedDbKey,
+    key_salt: newSalt,
+    kdf_params: CURRENT_KDF_PARAMS_SERIALIZED,
+  });
+}
+
 // ── Test-only login endpoint (bypasses Auth0) ─────────────────────────────────
 
 if (IS_TEST) {
@@ -154,15 +188,23 @@ if (IS_TEST) {
     if (!user) {
       const salt = generateSalt();
       const dbKey = generateDbKey();
-      const encryptedDbKey = encryptDbKey(dbKey, deriveKey(passphrase, salt));
+      const encryptedDbKey = encryptDbKey(dbKey, deriveKey(passphrase, salt, CURRENT_KDF_PARAMS));
       const [created] = await db("users")
         .insert({
           username,
           auth0_sub: `test|${username}`,
           encrypted_db_key: encryptedDbKey,
           key_salt: salt,
+          kdf_params: CURRENT_KDF_PARAMS_SERIALIZED,
         })
-        .returning(["id", "auth0_sub", "password_hash", "encrypted_db_key", "key_salt"]);
+        .returning([
+          "id",
+          "auth0_sub",
+          "password_hash",
+          "encrypted_db_key",
+          "key_salt",
+          "kdf_params",
+        ]);
       user = created as UserRow;
       const sessionId = createSession(user!.id, dbKey);
       setCookie(c, "session", sessionId, SESSION_COOKIE);
@@ -171,10 +213,14 @@ if (IS_TEST) {
 
     let dbKey: Buffer;
     try {
-      dbKey = decryptDbKey(user.encrypted_db_key, deriveKey(passphrase, user.key_salt));
+      dbKey = decryptDbKey(
+        user.encrypted_db_key,
+        deriveKey(passphrase, user.key_salt, parseKdfParams(user.kdf_params)),
+      );
     } catch {
       return c.json({ error: "Wrong passphrase" }, 401);
     }
+    await upgradeKdfParams(user.id, passphrase, dbKey, user.kdf_params);
     const sessionId = createSession(user.id, dbKey);
     setCookie(c, "session", sessionId, SESSION_COOKIE);
     return c.json({ ok: true });
@@ -254,6 +300,7 @@ app.get("/auth/callback", async (c) => {
       isNewUser: false,
       encryptedDbKey: user.encrypted_db_key,
       keySalt: user.key_salt,
+      keyParams: user.kdf_params,
       expiresAt,
     });
   }
@@ -285,9 +332,14 @@ app.post("/api/auth/passphrase", async (c) => {
     // Create new user
     const salt = generateSalt();
     dbKey = generateDbKey();
-    const encryptedDbKey = encryptDbKey(dbKey, deriveKey(passphrase, salt));
+    const encryptedDbKey = encryptDbKey(dbKey, deriveKey(passphrase, salt, CURRENT_KDF_PARAMS));
     const [user] = await db("users")
-      .insert({ auth0_sub: pending.auth0Sub, encrypted_db_key: encryptedDbKey, key_salt: salt })
+      .insert({
+        auth0_sub: pending.auth0Sub,
+        encrypted_db_key: encryptedDbKey,
+        key_salt: salt,
+        kdf_params: CURRENT_KDF_PARAMS_SERIALIZED,
+      })
       .returning(["id"]);
     userId = user.id as number;
   } else if (pending.needsMigration) {
@@ -302,22 +354,33 @@ app.post("/api/auth/passphrase", async (c) => {
     const valid = await Bun.password.verify(passphrase, user.password_hash!);
     if (!valid) return c.json({ error: "Invalid credentials" }, 401);
 
-    dbKey = decryptDbKey(user.encrypted_db_key, deriveKey(passphrase, user.key_salt));
+    dbKey = decryptDbKey(
+      user.encrypted_db_key,
+      deriveKey(passphrase, user.key_salt, parseKdfParams(user.kdf_params)),
+    );
 
-    // Re-encrypt dbKey: passphrase is now the encryption passphrase too
+    // Re-encrypt dbKey: passphrase is now the encryption passphrase too, and
+    // re-wrap at the current scrypt cost while we're at it.
     const newSalt = generateSalt();
-    const newEncryptedDbKey = encryptDbKey(dbKey, deriveKey(passphrase, newSalt));
+    const newEncryptedDbKey = encryptDbKey(
+      dbKey,
+      deriveKey(passphrase, newSalt, CURRENT_KDF_PARAMS),
+    );
     await db("users").where({ id: user.id }).update({
       auth0_sub: pending.auth0Sub,
       encrypted_db_key: newEncryptedDbKey,
       key_salt: newSalt,
+      kdf_params: CURRENT_KDF_PARAMS_SERIALIZED,
       password_hash: null,
     });
     userId = user.id;
   } else {
-    // Returning user — decrypt with passphrase
+    // Returning user — decrypt with passphrase under their stored params
     try {
-      dbKey = decryptDbKey(pending.encryptedDbKey!, deriveKey(passphrase, pending.keySalt!));
+      dbKey = decryptDbKey(
+        pending.encryptedDbKey!,
+        deriveKey(passphrase, pending.keySalt!, parseKdfParams(pending.keyParams)),
+      );
     } catch {
       return c.json({ error: "Wrong passphrase" }, 401);
     }
@@ -326,6 +389,7 @@ app.post("/api/auth/passphrase", async (c) => {
       | undefined;
     if (!user) return c.json({ error: "User not found" }, 400);
     userId = user.id;
+    await upgradeKdfParams(userId, passphrase, dbKey, pending.keyParams ?? null);
   }
 
   pendingPassphrase.delete(tempToken);
@@ -353,16 +417,24 @@ app.post("/api/auth/change-passphrase", async (c) => {
   if (!user) return c.json({ error: "User not found" }, 404);
 
   try {
-    decryptDbKey(user.encrypted_db_key, deriveKey(currentPassphrase, user.key_salt));
+    decryptDbKey(
+      user.encrypted_db_key,
+      deriveKey(currentPassphrase, user.key_salt, parseKdfParams(user.kdf_params)),
+    );
   } catch {
     return c.json({ error: "Wrong passphrase" }, 401);
   }
 
   const newSalt = generateSalt();
-  const newEncryptedDbKey = encryptDbKey(session.dbKey, deriveKey(newPassphrase, newSalt));
-  await db("users")
-    .where({ id: session.userId })
-    .update({ encrypted_db_key: newEncryptedDbKey, key_salt: newSalt });
+  const newEncryptedDbKey = encryptDbKey(
+    session.dbKey,
+    deriveKey(newPassphrase, newSalt, CURRENT_KDF_PARAMS),
+  );
+  await db("users").where({ id: session.userId }).update({
+    encrypted_db_key: newEncryptedDbKey,
+    key_salt: newSalt,
+    kdf_params: CURRENT_KDF_PARAMS_SERIALIZED,
+  });
 
   return c.body(null, 204);
 });

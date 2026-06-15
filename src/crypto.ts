@@ -14,14 +14,58 @@ export function generateSalt(): string {
   return randomBytes(SALT_LENGTH).toString("hex");
 }
 
+/** scrypt cost parameters. The same params must be used to derive a key for
+ * both encryption and decryption, so they are stored per user (`kdf_params`). */
+export interface ScryptParams {
+  N: number;
+  r: number;
+  p: number;
+}
+
+/** Node's historical scrypt defaults — what data wrapped before this change
+ * used. Rows predating the `kdf_params` column are assumed to use these. */
+export const LEGACY_KDF_PARAMS: ScryptParams = { N: 16384, r: 8, p: 1 };
+
+/** Target cost for new and re-wrapped keys (OWASP-2026 guidance for scrypt). */
+export const CURRENT_KDF_PARAMS: ScryptParams = { N: 131072, r: 8, p: 1 };
+
 /**
- * Derives a cryptographic key from a password and salt.
+ * Derives a cryptographic key from a password and salt under explicit scrypt
+ * params. `maxmem` is sized to the params because Node's 32 MiB default rejects
+ * costs above N=16384 (it requires maxmem > 128 * N * r).
+ *
  * @param password The password to derive the key from.
  * @param salt The salt to use in key derivation.
+ * @param params The scrypt cost parameters; defaults to {@link CURRENT_KDF_PARAMS}.
  * @returns The derived key as a Buffer.
  */
-export function deriveKey(password: string, salt: string): Buffer {
-  return scryptSync(password, salt, KEY_LENGTH);
+export function deriveKey(
+  password: string,
+  salt: string,
+  params: ScryptParams = CURRENT_KDF_PARAMS,
+): Buffer {
+  return scryptSync(password, salt, KEY_LENGTH, {
+    N: params.N,
+    r: params.r,
+    p: params.p,
+    maxmem: 256 * params.N * params.r,
+  });
+}
+
+/** Serializes scrypt params for storage, e.g. `scrypt$N=131072,r=8,p=1`. */
+export function serializeKdfParams(params: ScryptParams): string {
+  return `scrypt$N=${params.N},r=${params.r},p=${params.p}`;
+}
+
+/**
+ * Parses a stored `kdf_params` value. Null/undefined (rows that predate the
+ * column) are treated as {@link LEGACY_KDF_PARAMS} so existing keys still open.
+ */
+export function parseKdfParams(serialized: string | null | undefined): ScryptParams {
+  if (!serialized) return LEGACY_KDF_PARAMS;
+  const match = /^scrypt\$N=(\d+),r=(\d+),p=(\d+)$/.exec(serialized);
+  if (!match) throw new Error(`Unrecognized kdf_params: ${serialized}`);
+  return { N: Number(match[1]), r: Number(match[2]), p: Number(match[3]) };
 }
 
 /**
