@@ -4,7 +4,9 @@
 
 ### Encryption at Rest
 
-All event text is encrypted under a per-user AES-GCM key before being written to the database. The key is derived from the user's passphrase (scrypt) server-side; the server holds the plaintext key in memory for the session and does the encrypt/decrypt. This protects against a stolen database, not against the server itself — it is not zero-knowledge or end-to-end. Losing the passphrase means permanent data loss.
+All event text is encrypted under a per-user AES-GCM key (`dbKey`) before being written to the database. The `dbKey` is random; the user's passphrase is run through scrypt to derive a wrapping key that encrypts the `dbKey` at rest (envelope encryption). On login the server unwraps the `dbKey` and holds it in memory for the session, doing the encrypt/decrypt server-side. This protects against a stolen database, not against the server itself — it is not zero-knowledge or end-to-end. Losing the passphrase means permanent data loss.
+
+The scrypt cost parameters are stored per user (`users.kdf_params`) so the cost factor can be raised over time without locking anyone out: a login unwraps with the params on record, then transparently re-wraps the `dbKey` at the current target cost if it was below it. Rows predating the column are treated as the legacy defaults. Bumping the cost is therefore just a change to `CURRENT_KDF_PARAMS` in `src/crypto.ts` — existing users upgrade on their next login.
 
 ### Per-User Isolation
 
