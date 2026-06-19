@@ -2,7 +2,7 @@
 # Image digests are pinned and kept current by Renovate.
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM cgr.dev/chainguard/node@sha256:27bf957bdf6d189108c8908c958fd966d9814f78e7172c2d791940f4e208a334 AS builder
+FROM cgr.dev/chainguard/node@sha256:e992bdbbe830f1bead95583d62b79dec13f48ee291cc6761c147e4ed0dcbbcc1 AS builder
 
 USER root
 ADD --checksum=sha256:9ba98d2134550d6690875b23a4f5c48e74b7cb267e8cc1b8f52605921c6c11ef \
