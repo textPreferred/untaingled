@@ -1,5 +1,16 @@
 # Engineering
 
+## Code Guidelines
+
+- Follow Red-Green-Refactor TDD. Do commit the red test.
+- Existing data must not be lost or get corrupted. Do use migrations to make sure.
+- Prefer simple over clever.
+- Do not abbreviate names.
+- Use bun's `bun.lock` as the only lockfile. Do not commit foreign lockfiles (pnpm/npm/yarn) — a stray one misleads Renovate into updating it instead of `bun.lock`, breaking CI.
+- Do little refactorings as we go along, leaving code better than before (Boy Scout Rule).
+- Prefer composition over inheritance. Avoid inheritance.
+- Don't mix abstractions in functions. A function either consists of named function calls, or runs lower level operations. Never both.
+
 ## Key Concepts
 
 ### Encryption at Rest
@@ -19,14 +30,3 @@ Date events form a tree: year 2026 contains months, which contain days. Assignin
 ### Graph Structure
 
 Events form a directed acyclic graph where edges represent "happened while" relationships. Users can visualize this as a tree-like graph.
-
-## Code Guidelines
-
-- Follow Red-Green-Refactor TDD. Do commit the red test.
-- Existing data must not be lost or get corrupted. Do use migrations to make sure.
-- Prefer simple over clever.
-- Do not abbreviate names.
-- Use bun's `bun.lock` as the only lockfile. Do not commit foreign lockfiles (pnpm/npm/yarn) — a stray one misleads Renovate into updating it instead of `bun.lock`, breaking CI.
-- Do little refactorings as we go along, leaving code better than before (Boy Scout Rule).
-- Prefer composition over inheritance. Avoid inheritance.
-- Don't mix abstractions in functions. A function either consists of named function calls, or runs lower level operations. Never both.

@@ -18,6 +18,10 @@ Auto-Clarity: drop caveman for security warnings, irreversible actions, user con
 
 Boundaries: code/commits/PRs written normal.
 
+# Production Priorities
+
+User data must be preserved over migrations and code / architecture changes.
+
 # Project
 
 ## Package manager & runtime
@@ -51,7 +55,9 @@ The old GitHub Actions pipeline is retired — see [.github/workflows/ci-pipelin
 
 ## Coding Preferences
 
-Defined in [./doc/engineering.md](./doc/engineering.md). Keep updated with explicit decisions in claude sessions.
+Red/Green/Refactor TDD.
+
+More details defined in [./doc/engineering.md](./doc/engineering.md). Keep updated with explicit decisions in claude sessions.
 
 ## Domain Knowledge
 
