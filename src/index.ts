@@ -93,6 +93,9 @@ setInterval(() => {
 
 const app = new Hono();
 
+// Health check — registered before any auth so probes need no credentials.
+app.get("/health", (c) => c.text("OK"));
+
 const basicAuthUser = process.env["BASIC_AUTH_USER"];
 const basicAuthPassword = process.env["BASIC_AUTH_PASSWORD"];
 if (basicAuthUser && basicAuthPassword) {
