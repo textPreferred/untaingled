@@ -2,7 +2,7 @@
 # Image digests are pinned and kept current by Renovate.
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM cgr.dev/chainguard/node@sha256:7d7ae95203d0855c201c0166535d7450185f9ea07c35ef6d3ffe2b5c473bd49e AS builder
+FROM cgr.dev/chainguard/node@sha256:e48acd045f3c4da0148a59f5eba5f2ad8067ca8d177debf5522074df0454431c AS builder
 
 USER root
 ADD --checksum=sha256:9ba98d2134550d6690875b23a4f5c48e74b7cb267e8cc1b8f52605921c6c11ef \
@@ -24,7 +24,7 @@ COPY index.html tsconfig.json tsconfig.client.json tsconfig.migrations.json vite
 RUN bun run build
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM cgr.dev/chainguard/node@sha256:7d7ae95203d0855c201c0166535d7450185f9ea07c35ef6d3ffe2b5c473bd49e AS runtime
+FROM cgr.dev/chainguard/node@sha256:e48acd045f3c4da0148a59f5eba5f2ad8067ca8d177debf5522074df0454431c AS runtime
 
 COPY --from=builder /usr/local/bin/bun /usr/local/bin/bun
 
